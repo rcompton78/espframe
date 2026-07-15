@@ -1,0 +1,192 @@
+# =============================================================================
+# HARDWARE CONFIGURATION - Freenove ESP32-S3 CYD (2.8" ILI9341 + FT6336U)
+# =============================================================================
+# Base device config: ESP32-S3 (native WiFi/BT, no coprocessor needed), octal
+# PSRAM, display (SPI ILI9341), touch (FT6336U, I2C), backlight, I2C. Also
+# API, logger, web server, OTA, and espframe external components. Display is
+# 240x320 logical.
+#
+# Pin map mirrors the known-working `freenove-s3` PlatformIO env in the
+# compton-diy monorepo's cyd-clock app (apps/cyd-clock/platformio.ini and
+# include/Config.h), which runs the same physical board.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Build and log
+# -----------------------------------------------------------------------------
+substitutions:
+  espframe_component_url: "https://github.com/rcompton78/espframe"
+  espframe_component_ref: "add-freenove-s3-device"
+  log_level: "INFO"
+
+esp32:
+  variant: ESP32S3
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_HTTPD_MAX_REQ_HDR_LEN: "8192"
+      CONFIG_HTTPD_MAX_URI_LEN: "128"
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "30"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  platformio_options:
+    board_build.flash_mode: dio
+    build_flags:
+      - "-DCONFIG_COMPILER_OPTIMIZATION_PERF=y"
+      - "-DLV_USE_BIDI=1"
+      - "-DLV_USE_ARABIC_PERSIAN_CHARS=1"
+
+# -----------------------------------------------------------------------------
+# PSRAM (octal mode)
+# -----------------------------------------------------------------------------
+psram:
+  mode: octal
+  speed: 80MHz
+
+# -----------------------------------------------------------------------------
+# API, logger, JSON, web server, OTA, debug (reset reason for crash diagnosis)
+# -----------------------------------------------------------------------------
+api:
+  reboot_timeout: 0s
+
+logger:
+  level: ${log_level}
+  hardware_uart: USB_SERIAL_JTAG
+  logs:
+    component: WARN
+    remote_image: WARN
+    immich: INFO
+    warm: WARN
+    accent: WARN
+
+debug:
+  update_interval: 60s
+
+text_sensor:
+  - platform: debug
+    reset_reason:
+      id: reset_reason_sensor
+      name: "Reset Reason"
+      entity_category: diagnostic
+      on_value:
+        then:
+          - if:
+              condition:
+                lambda: 'return x.find("esphome.ota") != std::string::npos;'
+              then:
+                - script.execute: firmware_update_recover_display
+
+json:
+
+web_server:
+  port: 80
+  version: 3
+  include_internal: true
+  # Keep the control panel on the frame so setup and settings still work if
+  # GitHub Pages or the wider internet is unavailable.
+  js_url: ""
+  css_include: "../../../docs/public/webserver/style.css"
+  js_include: "../../../docs/public/webserver/app.js"
+  sorting_groups:
+    - id: sg_connection
+      name: "Connection"
+      sorting_weight: 10
+    - id: sg_photos
+      name: "Photos"
+      sorting_weight: 20
+    - id: sg_device
+      name: "Device"
+      sorting_weight: 25
+    - id: sg_screen
+      name: "Screen"
+      sorting_weight: 30
+    - id: sg_clock
+      name: "Clock"
+      sorting_weight: 35
+    - id: sg_firmware
+      name: "Firmware"
+      sorting_weight: 40
+    - id: sg_wifi
+      name: "WiFi"
+      sorting_weight: 45
+    - id: sg_developer
+      name: "Developer"
+      sorting_weight: 90
+
+ota:
+  - platform: esphome
+    on_begin:
+      then:
+        - lambda: |-
+            id(firmware_update_reboot_pending) = true;
+            global_preferences->sync();
+
+# -----------------------------------------------------------------------------
+# External components (espframe: remote_image, espframe)
+# -----------------------------------------------------------------------------
+external_components:
+  - source:
+      type: git
+      url: ${espframe_component_url}
+      ref: ${espframe_component_ref}
+      path: components
+    components: [remote_image, espframe]
+    refresh: 0s
+
+espframe:
+  id: espframe_core
+
+# -----------------------------------------------------------------------------
+# Backlight output, SPI (display), I2C (touch)
+# -----------------------------------------------------------------------------
+output:
+  - platform: ledc
+    id: backlight_output
+    pin: GPIO45
+
+spi:
+  id: spi_bus_display
+  clk_pin: GPIO12
+  mosi_pin: GPIO11
+  miso_pin: GPIO13
+
+i2c:
+  - id: i2c_bus_a
+    sda: GPIO16
+    scl: GPIO15
+    scan: true
+    frequency: 400kHz
+
+# -----------------------------------------------------------------------------
+# SPI display (ILI9341, 240x320, BGR order, inverted colors)
+# -----------------------------------------------------------------------------
+display:
+  - platform: ili9xxx
+    model: ILI9341
+    id: tft_display
+    spi_id: spi_bus_display
+    cs_pin: GPIO10
+    dc_pin: GPIO46
+    color_order: BGR
+    invert_colors: true
+    auto_clear_enabled: false
+    update_interval: never
+    dimensions:
+      width: 240
+      height: 320
+
+# -----------------------------------------------------------------------------
+# Touch (FT6336U, I2C, transform for orientation)
+# -----------------------------------------------------------------------------
+touchscreen:
+  - platform: ft63x6
+    id: tft_touch
+    display: tft_display
+    interrupt_pin: GPIO17
+    reset_pin: GPIO18
+    i2c_id: i2c_bus_a
+    on_touch:
+      - script.execute: backlight_wake
