@@ -6,7 +6,7 @@
     "install": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm install",
+        "command": "pnpm install --ignore-workspace",
         "cwd": "apps/espframe"
       }
     },
