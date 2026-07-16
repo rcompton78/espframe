@@ -163,9 +163,16 @@ i2c:
 # -----------------------------------------------------------------------------
 # SPI display (ILI9341, 240x320, BGR order, inverted colors)
 # -----------------------------------------------------------------------------
+# This physical panel needs the alternate ILI9341 init sequence -- the same
+# one selected by TFT_eSPI's ILI9341_2_DRIVER in cyd-clock's freenove-s3 env
+# (platformio.ini), which differs from TFT_eSPI's (and ESPHome's built-in
+# ili9xxx "ILI9341" model's) standard init table in VCOM/power-control/gamma
+# values. Using the standard model here leaves the panel showing a blank
+# white screen (confirmed on-device), so model: CUSTOM replicates the
+# alternate sequence directly. See https://github.com/Bodmer/TFT_eSPI/issues/1172.
 display:
   - platform: ili9xxx
-    model: ILI9341
+    model: CUSTOM
     id: tft_display
     spi_id: spi_bus_display
     cs_pin: GPIO10
@@ -174,9 +181,34 @@ display:
     invert_colors: true
     auto_clear_enabled: false
     update_interval: never
+    transform:
+      mirror_x: true
     dimensions:
       width: 240
       height: 320
+    init_sequence:
+      - [0xCF, 0x00, 0xC1, 0x30]
+      - [0xED, 0x64, 0x03, 0x12, 0x81]
+      - [0xE8, 0x85, 0x00, 0x78]
+      - [0xCB, 0x39, 0x2C, 0x00, 0x34, 0x02]
+      - [0xF7, 0x20]
+      - [0xEA, 0x00, 0x00]
+      - [0xC0, 0x10]                                                                       # PWCTR1
+      - [0xC1, 0x00]                                                                       # PWCTR2
+      - [0xC5, 0x30, 0x30]                                                                 # VMCTR1
+      - [0xC7, 0xB7]                                                                       # VMCTR2
+      - [0x3A, 0x55]                                                                       # PIXFMT (16bpp)
+      - [0x36, 0x08]                                                                       # MADCTL (BGR, no rotation)
+      - [0xB1, 0x00, 0x1A]                                                                 # FRMCTR1
+      - [0xB6, 0x08, 0x82, 0x27]                                                           # DFUNCTR
+      - [0xF2, 0x00]                                                                       # 3Gamma disable
+      - [0x26, 0x01]                                                                       # GAMMASET
+      - [0xE0, 0x0F, 0x2A, 0x28, 0x08, 0x0E, 0x08, 0x54, 0xA9, 0x43, 0x0A, 0x0F, 0x00, 0x00, 0x00, 0x00]  # GMCTRP1
+      - [0xE1, 0x00, 0x15, 0x17, 0x07, 0x11, 0x06, 0x2B, 0x56, 0x3C, 0x05, 0x10, 0x0F, 0x3F, 0x3F, 0x0F]  # GMCTRN1
+      - [0x2B, 0x00, 0x00, 0x01, 0x3F]                                                     # PASET (rows 0-319)
+      - [0x2A, 0x00, 0x00, 0x00, 0xEF]                                                     # CASET (cols 0-239)
+      - [0x11]                                                                             # SLPOUT
+      - [0x29]                                                                             # DISPON
 
 # -----------------------------------------------------------------------------
 # Touch (FT6336U, I2C, transform for orientation)
