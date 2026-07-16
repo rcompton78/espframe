@@ -21,15 +21,17 @@
     "build-freenove-s3": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "docker run --rm -v \"$(pwd)/apps/espframe:/config\" ghcr.io/esphome/esphome:2026.6.4 compile /config/builds/freenove-s3.factory.yaml",
+        "command": "docker run --rm --user \"$(id -u):$(id -g)\" -e HOME=/tmp -v \"$(pwd)/apps/espframe:/config\" ghcr.io/esphome/esphome:2026.6.4 compile /config/builds/freenove-s3.factory.yaml",
         "cwd": "."
       },
-      "dependsOn": ["generate"]
+      "dependsOn": ["generate"],
+      "cache": true,
+      "outputs": ["{projectRoot}/builds/.esphome/build/immich-frame-freenove-s3"]
     },
     "flash-freenove-s3": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "docker run --rm -v \"$(pwd)/apps/espframe:/config\" --device=/dev/ttyACM0 ghcr.io/esphome/esphome:2026.6.4 upload /config/builds/freenove-s3.factory.yaml --device /dev/ttyACM0",
+        "command": "docker run --rm --user \"$(id -u):$(id -g)\" -e HOME=/tmp -v \"$(pwd)/apps/espframe:/config\" --device=/dev/ttyACM0 ghcr.io/esphome/esphome:2026.6.4 upload /config/builds/freenove-s3.factory.yaml --device /dev/ttyACM0",
         "cwd": "."
       },
       "dependsOn": ["build-freenove-s3"]
