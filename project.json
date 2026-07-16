@@ -31,7 +31,7 @@
     "flash-freenove-s3": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "docker run --rm --user \"$(id -u):$(id -g)\" -e HOME=/tmp -e USER=\"$(id -un)\" -v \"$(pwd)/apps/espframe:/config\" --device=/dev/ttyACM0 ghcr.io/esphome/esphome:2026.6.4 upload /config/builds/freenove-s3.factory.yaml --device /dev/ttyACM0",
+        "command": "docker run --rm --user \"$(id -u):$(id -g)\" --group-add \"$(stat -c '%g' /dev/ttyACM0)\" -e HOME=/tmp -e USER=\"$(id -un)\" -v \"$(pwd)/apps/espframe:/config\" --device=/dev/ttyACM0 ghcr.io/esphome/esphome:2026.6.4 upload /config/builds/freenove-s3.factory.yaml --device /dev/ttyACM0",
         "cwd": "."
       },
       "dependsOn": ["build-freenove-s3"]
@@ -39,7 +39,7 @@
     "monitor-freenove-s3": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "docker run --rm --user \"$(id -u):$(id -g)\" -e HOME=/tmp -e USER=\"$(id -un)\" -v \"$(pwd)/apps/espframe:/config\" --device=/dev/ttyACM0 -it ghcr.io/esphome/esphome:2026.6.4 logs /config/builds/freenove-s3.factory.yaml --device /dev/ttyACM0",
+        "command": "docker run --rm --user \"$(id -u):$(id -g)\" --group-add \"$(stat -c '%g' /dev/ttyACM0)\" -e HOME=/tmp -e USER=\"$(id -un)\" -v \"$(pwd)/apps/espframe:/config\" --device=/dev/ttyACM0 -it ghcr.io/esphome/esphome:2026.6.4 logs /config/builds/freenove-s3.factory.yaml --device /dev/ttyACM0",
         "cwd": "."
       }
     },
