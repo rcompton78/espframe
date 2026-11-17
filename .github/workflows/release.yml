@@ -17,6 +17,8 @@ on:
     paths-ignore:
       - "README.md"
       - "docs/**/*.md"
+      - ".gitignore"
+      - ".claude/**"
   workflow_dispatch:
 
 permissions:
