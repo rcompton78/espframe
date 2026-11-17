@@ -975,7 +975,7 @@ function smokeAssertionsForScenario(scenario) {
           name_id: "update/Firmware: Update", id: "update-firmware__update", domain: "update",
           value: "v1.0.2", state: "UPDATE AVAILABLE", current_version: "v1.0.1"
         });
-        events.dispatch("state", updateEvent("INSTALLING"));
+        events.dispatch("state", Object.assign(updateEvent("INSTALLING"), { value: "v1.0.2" }));
         await waitFor(() => {
           const button = firmwareInstallButton();
           return button && button.disabled && button.textContent.indexOf("Installing") !== -1;

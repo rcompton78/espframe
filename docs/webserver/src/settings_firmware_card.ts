@@ -64,11 +64,17 @@
     // entity back to "UPDATE AVAILABLE" (ESPHome may coalesce the brief
     // "INSTALLING" state away), and nothing else publishes that while an
     // install is pending.
+    // Rebuild the row only when the update state changes, so repeated
+    // events don't replace (and unfocus) the Install button.
+    var renderedUpdateState = S.update_state;
     firmwareUpdateStateListener = function (state) {
       if (S.firmware_install_pending && state === "UPDATE AVAILABLE") {
+        renderedUpdateState = state;
         installFailed();
         return;
       }
+      if (state === renderedUpdateState) return;
+      renderedUpdateState = state;
       renderUpdateRow();
     };
 

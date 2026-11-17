@@ -3009,11 +3009,15 @@ to {
       }
       updateRow.appendChild(actionRow(label, installBtn));
     }
+    var renderedUpdateState = S.update_state;
     firmwareUpdateStateListener = function(state) {
       if (S.firmware_install_pending && state === "UPDATE AVAILABLE") {
+        renderedUpdateState = state;
         installFailed();
         return;
       }
+      if (state === renderedUpdateState) return;
+      renderedUpdateState = state;
       renderUpdateRow();
     };
     renderUpdateRow();
