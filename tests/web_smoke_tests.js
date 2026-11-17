@@ -939,7 +939,7 @@ function smokeAssertionsForScenario(scenario) {
             throw new Error("Unexpected date filter modes: " + JSON.stringify(filterModes));
           }
           expandCard("Photo Source");
-          requireText("Source");
+          requireSelectIncludes("Source", ["All Photos", "Favorites", "Album", "Person", "Tag", "Memories"]);
 
           if (${JSON.stringify(scenario.name)} === "settings" || ${JSON.stringify(scenario.name)} === "settings-mobile") {
             requirePhotoSourceModes();
@@ -1161,10 +1161,13 @@ async function runScenario(scenario) {
 
   const outcome = scenarioOutcome(scenario, result.stdout || "");
   if (outcome.status === "pass") return;
+  // A failure the scenario recorded explains more than how Chrome exited.
+  if (outcome.status === "fail") {
+    assert.fail(`Browser smoke scenario ${scenario.name} failed: ${outcome.error || "no error captured"}`);
+  }
   assert.equal(result.timedOut, false, `Chrome timed out for ${scenario.name}:\n${result.stderr || ""}`);
   assert.equal(result.status, 0, `Chrome failed for ${scenario.name}:\n${result.stderr || ""}`);
-  const detail = outcome.error || (outcome.status === "fail" ? "no error captured" : "scenario never finished");
-  assert.fail(`Browser smoke scenario ${scenario.name} failed: ${detail}`);
+  assert.fail(`Browser smoke scenario ${scenario.name} failed: scenario never finished`);
 }
 
 function decodeHtmlText(text) {
