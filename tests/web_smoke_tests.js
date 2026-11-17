@@ -929,16 +929,38 @@ function smokeAssertionsForScenario(scenario) {
         if (!window.__smoke.posts.some((url) => url.indexOf("Firmware: Update/install") !== -1)) {
           throw new Error("Install did not post to the update entity");
         }
+        // ESPHome 2026.x event shape: "id" is the object id; "name_id" is
+        // the "domain/Name" form the page keys on.
         const events = window.__smoke.eventSource;
-        events.dispatch("state", { id: "update/Firmware: Update", value: "v1.0.1", state: "INSTALLING" });
+        const updateEvent = (state) => ({
+          name_id: "update/Firmware: Update", id: "update-firmware__update", domain: "update",
+          value: "v1.0.1", state
+        });
+        events.dispatch("state", updateEvent("INSTALLING"));
         if (pageText().indexOf("Install failed") !== -1) throw new Error("INSTALLING reported as a failure");
-        events.dispatch("state", { id: "update/Firmware: Update", value: "v1.0.1", state: "UPDATE AVAILABLE" });
+        events.dispatch("state", updateEvent("UPDATE AVAILABLE"));
         await waitFor(() => pageText().indexOf("Install failed") !== -1, 2000, "install failure message");
         const retryButton = firmwareInstallButton();
         if (!retryButton || retryButton.disabled || retryButton.textContent.trim() !== "Install") {
           throw new Error("Firmware Install button not re-enabled after a failed install");
         }
         requireText("v1.0.1");
+
+        // A successful install reboots the frame, which then reports its new
+        // version; the card must show it and drop the pending install.
+        retryButton.click();
+        events.dispatch("state", {
+          name_id: "text_sensor/Firmware: Version", id: "text_sensor-firmware__version",
+          domain: "text_sensor", value: "v1.0.1", state: "v1.0.1"
+        });
+        events.dispatch("state", {
+          name_id: "update/Firmware: Update", id: "update-firmware__update", domain: "update",
+          value: "", state: "UNKNOWN", current_version: "", title: ""
+        });
+        await waitFor(() => {
+          const card = document.querySelector(".fw-body");
+          return card && /Installed\\s*v1\\.0\\.1/.test(card.innerText) && card.innerText.indexOf("Installing") === -1;
+        }, 2000, "installed version after a successful install");
       }
 
       try {

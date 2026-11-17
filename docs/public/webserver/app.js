@@ -40,7 +40,7 @@
   var ENTITY_ALIASES = { "schedule_enabled": [{ "entity": "switch/Screen: Schedule", "boolFromState": true }], "schedule_on_hour": [{ "entity": "number/Screen: Schedule On", "default": 6, "number": true }], "schedule_off_hour": [{ "entity": "number/Screen: Schedule Off", "default": 23, "number": true }] };
   var BACKUP_CONFIG_VERSION = 1;
   var BACKUP_SCHEMA = [{ "group": "connection", "field": "immich_url", "state_keys": ["immich_url"] }, { "group": "connection", "field": "api_key", "state_keys": ["api_key"] }, { "group": "photos", "field": "source", "state_keys": ["photo_source"] }, { "group": "photos", "field": "album_order", "state_keys": ["album_order"] }, { "group": "photos", "field": "album_ids", "state_keys": ["album_ids"] }, { "group": "photos", "field": "album_labels", "state_keys": ["album_labels"] }, { "group": "photos", "field": "person_ids", "state_keys": ["person_ids"] }, { "group": "photos", "field": "person_labels", "state_keys": ["person_labels"] }, { "group": "photos", "field": "tag_ids", "state_keys": ["tag_ids"] }, { "group": "photos", "field": "tag_labels", "state_keys": ["tag_labels"] }, { "group": "photos", "field": "date_filter_enabled", "state_keys": ["date_filter_enabled"] }, { "group": "photos", "field": "date_filter_mode", "state_keys": ["date_filter_mode"] }, { "group": "photos", "field": "date_from", "state_keys": ["date_from"] }, { "group": "photos", "field": "date_to", "state_keys": ["date_to"] }, { "group": "photos", "field": "relative_amount", "state_keys": ["relative_amount"] }, { "group": "photos", "field": "relative_unit", "state_keys": ["relative_unit"] }, { "group": "photos", "field": "orientation", "state_keys": ["photo_orientation"] }, { "group": "photos", "field": "portrait_pairing", "state_keys": ["portrait_pairing"] }, { "group": "photos", "field": "display_mode", "state_keys": ["display_mode"] }, { "group": "frequency", "field": "interval", "state_keys": ["interval"] }, { "group": "frequency", "field": "conn_timeout", "state_keys": ["conn_timeout"] }, { "group": "firmware_updates", "field": "auto_update", "state_keys": ["auto_update"] }, { "group": "firmware_updates", "field": "update_frequency", "state_keys": ["update_frequency"] }, { "group": "firmware_updates", "field": "manifest_url", "state_keys": ["firmware_manifest_url"] }, { "group": "clock", "field": "show", "state_keys": ["show_clock"] }, { "group": "clock", "field": "format", "state_keys": ["clock_format"] }, { "group": "clock", "field": "timezone", "state_keys": ["timezone"] }, { "group": "clock", "field": "size", "state_keys": ["clock_size"] }, { "group": "clock", "field": "position", "state_keys": ["clock_position"] }, { "group": "clock", "field": "ntp_servers", "state_keys": ["ntp_server_1", "ntp_server_2", "ntp_server_3"] }, { "group": "screen", "field": "brightness_day", "state_keys": ["brightness_day"] }, { "group": "screen", "field": "brightness_night", "state_keys": ["brightness_night"] }, { "group": "screen", "field": "schedule_enabled", "state_keys": ["schedule_enabled"] }, { "group": "screen", "field": "schedule_on_hour", "state_keys": ["schedule_on_hour"] }, { "group": "screen", "field": "schedule_off_hour", "state_keys": ["schedule_off_hour"] }, { "group": "screen", "field": "schedule_wake_timeout", "state_keys": ["schedule_wake_timeout"] }, { "group": "screen", "field": "base_tone_enabled", "state_keys": ["base_tone_enabled"] }, { "group": "screen", "field": "base_tone", "state_keys": ["base_tone"] }, { "group": "screen", "field": "warm_tones_enabled", "state_keys": ["warm_tones_enabled"] }, { "group": "screen", "field": "warm_tone_intensity", "state_keys": ["warm_tone_intensity"] }, { "group": "screen", "field": "warm_tone_override", "state_keys": ["warm_tone_override"] }, { "group": "screen", "field": "rotation", "state_keys": ["screen_rotation"] }];
-  var LIVE_RENDER_STATE_KEYS = ["screen_rotation", "portrait_pairing", "developer_features_enabled"];
+  var LIVE_RENDER_STATE_KEYS = ["firmware", "screen_rotation", "portrait_pairing", "developer_features_enabled"];
   var LIVE_RENDER_STATE_PREFIXES = ["photo_metadata_", "schedule_"];
   var FIRMWARE_MANIFEST_URLS = { "stable": "https://jtenniswood.github.io/espframe/firmware/manifest.json" };
   var DOCS_BASE_URL = "https://jtenniswood.github.io/espframe";
@@ -1895,12 +1895,16 @@ to {
     var spec = ENTITY_STATE_MAP[id];
     if (!spec) return;
     var v = d.value != null ? d.value : d.state;
+    var previousValue = S[spec.key];
     if (spec.boolFromState) {
       S[spec.key] = v === true || v === "ON";
     } else if (spec.number) {
       S[spec.key] = v != null ? Math.round(Number(v)) : spec.default !== void 0 ? spec.default : 0;
     } else {
       S[spec.key] = v !== void 0 && v !== null ? String(v) : spec.default !== void 0 ? spec.default : "";
+    }
+    if (spec.key === "firmware" && previousValue !== void 0 && previousValue !== S[spec.key]) {
+      S.firmware_install_pending = false;
     }
     if (spec.key === "timezone") S[spec.key] = normalizeTimezoneOption(S[spec.key]);
     if (spec.key && spec.key.indexOf("ntp_server_") === 0) S[spec.key] = normalizeNtpServer(S[spec.key]);
@@ -1912,6 +1916,10 @@ to {
     if (spec.key === "photo_metadata_date_taken_format") {
       S[spec.key] = normalizeDateTakenFormat(S[spec.key]);
     }
+  }
+  function normalizeEntityEvent(d) {
+    if (d && typeof d.name_id === "string" && d.name_id) d.id = d.name_id;
+    return d;
   }
   function collectState(d) {
     applyEntityToState(d);
@@ -2030,7 +2038,7 @@ to {
       evtSource = new EventSource("/events");
       evtSource.addEventListener("state", function(e) {
         try {
-          var d = JSON.parse(e.data);
+          var d = normalizeEntityEvent(JSON.parse(e.data));
           collectState(d);
           if (rendered) handleLiveEvent(d);
         } catch (_) {
@@ -2983,6 +2991,7 @@ to {
       var label = textLabel("Stable", S.latest_version);
       var installBtn = button("Install", "btn btn-primary btn-sm", function() {
         S.firmware_install_pending = true;
+        installBtn.blur();
         installBtn.disabled = true;
         installBtn.textContent = "Installing\u2026";
         statusMsg.textContent = "";

@@ -791,6 +791,7 @@
       "backup-import-unsupported-version"
     ],
     "web_live_render_state_keys": [
+      "firmware",
       "screen_rotation",
       "portrait_pairing",
       "developer_features_enabled"

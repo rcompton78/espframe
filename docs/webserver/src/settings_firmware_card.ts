@@ -33,6 +33,9 @@
       var label = textLabel("Stable", S.latest_version);
       var installBtn = button("Install", "btn btn-primary btn-sm", function () {
         S.firmware_install_pending = true;
+        // A focused button blocks live re-renders (isEditingSetting), and the
+        // card must re-render when the frame comes back on its new version.
+        installBtn.blur();
         installBtn.disabled = true;
         installBtn.textContent = "Installing\u2026";
         statusMsg.textContent = "";
