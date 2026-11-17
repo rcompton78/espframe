@@ -21,6 +21,12 @@
 #                          "dev" build finds updates but never auto-installs
 #                          them; press Install on the frame's web page.
 #   DEVICE                 default --device for flash/logs.
+#   PLATFORMIO_CORE_DIR    where PlatformIO keeps its toolchains and Python env
+#                          (several GB). Default: .platformio-core/ in this repo,
+#                          so the build never changes the ~/.platformio other
+#                          projects share. Point worktrees or clones at one
+#                          folder to share a copy. A relative path in .env is
+#                          relative to the repo root; a leading ~/ is $HOME.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -45,10 +51,23 @@ if [ -f "$ROOT/.env" ]; then
         # script's own variables (VENV is rm -rf'd on a reinstall).
         case "$key" in
             FIRMWARE_MANIFEST_URL | RELEASE_VERSION | DEVICE) export "$key=$value" ;;
-            *) die ".env: unsupported setting '$key' (only FIRMWARE_MANIFEST_URL, RELEASE_VERSION, DEVICE)" ;;
+            PLATFORMIO_CORE_DIR)
+                case "$value" in
+                    '~/'*) value="$HOME/${value#'~/'}" ;;
+                    '' | /*) ;;
+                    *) value="$ROOT/$value" ;;
+                esac
+                export "$key=$value"
+                ;;
+            *) die ".env: unsupported setting '$key' (only FIRMWARE_MANIFEST_URL, RELEASE_VERSION, DEVICE, PLATFORMIO_CORE_DIR)" ;;
         esac
     done < "$ROOT/.env"
 fi
+
+# Keep PlatformIO's toolchains and Python env in this repo unless told otherwise:
+# its default, ~/.platformio, is shared by every PlatformIO and ESPHome project
+# on the machine, and a build here can recreate its Python env.
+export PLATFORMIO_CORE_DIR="${PLATFORMIO_CORE_DIR:-$ROOT/.platformio-core}"
 
 python_bin() {
     local candidate

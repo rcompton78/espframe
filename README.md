@@ -56,7 +56,7 @@ A local build reports version `dev` and has **no update manifest**, so it doesn'
 FIRMWARE_MANIFEST_URL=https://<your-user>.github.io/<repo>/manifest.json
 ```
 
-`.env` is gitignored and read as plain `NAME=value` lines. It takes only `FIRMWARE_MANIFEST_URL`, `RELEASE_VERSION` and `DEVICE` (the default `--device` for `flash` and `logs`); any other name stops the script with an error, so a misspelt setting can't be silently ignored. A `dev` build finds updates but never installs one on its own: press **Install** on the frame's web page, or also set `RELEASE_VERSION=` to a version of your own in `.env` so auto-update works. You can also set or change the URL later on the frame's web page, under **Firmware** → **Advanced**.
+`.env` is gitignored and read as plain `NAME=value` lines. It takes only `FIRMWARE_MANIFEST_URL`, `RELEASE_VERSION`, `DEVICE` (the default `--device` for `flash` and `logs`) and `PLATFORMIO_CORE_DIR` (see [Developer notes](#developer-notes)); any other name stops the script with an error, so a misspelt setting can't be silently ignored. A `dev` build finds updates but never installs one on its own: press **Install** on the frame's web page, or also set `RELEASE_VERSION=` to a version of your own in `.env` so auto-update works. You can also set or change the URL later on the frame's web page, under **Firmware** → **Advanced**.
 
 #### Local Wi-Fi build
 
@@ -76,7 +76,7 @@ scripts/firmware.sh esphome run devices/guition-esp32-p4-jc8012p4a1/dev.yaml --d
 #### Developer notes
 
 - **Firmware files.** `scripts/firmware.sh compile` writes `firmware.factory.bin` (full flash, for a new or erased frame) and `firmware.ota.bin` (update) to `builds/.esphome/build/immich-frame-10inch/.pioenvs/immich-frame-10inch/`. A `dev.yaml` build lands under `devices/guition-esp32-p4-jc8012p4a1/.esphome/build/immich-frame-10inch-dev/` instead.
-- **First compile.** It downloads several GB of ESP-IDF toolchain into `~/.platformio`, so allow time and disk space. Later builds reuse it.
+- **First compile.** It downloads several GB of ESP-IDF toolchain, so allow time and disk space. Later builds reuse it. `scripts/firmware.sh` keeps PlatformIO's toolchains and Python environment in `.platformio-core/` in the repo (gitignored), not the `~/.platformio` other PlatformIO and ESPHome projects share, so building here never changes them. Each clone or worktree downloads its own copy; to share one, set `PLATFORMIO_CORE_DIR` to a common folder in your environment or in `.env` (e.g. `PLATFORMIO_CORE_DIR=~/.cache/espframe-platformio`). Setting it to `~/.platformio` goes back to the shared folder, which a build here may change (it can recreate PlatformIO's Python environment).
 - **No OTA password or API key.** OTA and the Home Assistant API are open to anyone on your network. Add `password:` under `ota:` and `encryption: key:` under `api:` in your own config if that matters to you.
 - **Node.js.** Use Node.js 22, the version CI uses (`.nvmrc` pins it for `nvm use`).
 - **Web smoke test.** `npm run test:web-smoke` drives a headless Chrome or Chromium; if it isn't in a standard place, set `CHROME_BIN` to its path.
