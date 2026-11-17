@@ -58,6 +58,30 @@ FIRMWARE_MANIFEST_URL=https://<your-user>.github.io/<repo>/manifest.json
 
 `.env` is gitignored and read as plain `NAME=value` lines. It takes only `FIRMWARE_MANIFEST_URL`, `RELEASE_VERSION` and `DEVICE` (the default `--device` for `flash` and `logs`); any other name stops the script with an error, so a misspelt setting can't be silently ignored. A `dev` build finds updates but never installs one on its own: press **Install** on the frame's web page, or also set `RELEASE_VERSION=` to a version of your own in `.env` so auto-update works. You can also set or change the URL later on the frame's web page, under **Firmware** → **Advanced**.
 
+#### Local Wi-Fi build
+
+`scripts/firmware.sh compile` builds the same firmware as a release: it starts a hotspot until you pick a network. For development, `devices/guition-esp32-p4-jc8012p4a1/dev.yaml` builds a frame called `immich-frame-10inch-dev` that joins your Wi-Fi straight away. Create `devices/guition-esp32-p4-jc8012p4a1/secrets.yaml` (gitignored) next to it:
+
+```yaml
+wifi_ssid: "your-network"
+wifi_password: "your-password"
+```
+
+Then build and flash it with the pinned ESPHome (always go through `scripts/firmware.sh`, not a plain `esphome`, so you get the right version):
+
+```bash
+scripts/firmware.sh esphome run devices/guition-esp32-p4-jc8012p4a1/dev.yaml --device /dev/ttyUSB0
+```
+
+#### Developer notes
+
+- **Firmware files.** `scripts/firmware.sh compile` writes `firmware.factory.bin` (full flash, for a new or erased frame) and `firmware.ota.bin` (update) to `builds/.esphome/build/immich-frame-10inch/.pioenvs/immich-frame-10inch/`. A `dev.yaml` build lands under `devices/guition-esp32-p4-jc8012p4a1/.esphome/build/immich-frame-10inch-dev/` instead.
+- **First compile.** It downloads several GB of ESP-IDF toolchain into `~/.platformio`, so allow time and disk space. Later builds reuse it.
+- **No OTA password or API key.** OTA and the Home Assistant API are open to anyone on your network. Add `password:` under `ota:` and `encryption: key:` under `api:` in your own config if that matters to you.
+- **Node.js.** Use Node.js 22, the version CI uses (`.nvmrc` pins it for `nvm use`).
+- **Web smoke test.** `npm run test:web-smoke` drives a headless Chrome or Chromium; if it isn't in a standard place, set `CHROME_BIN` to its path.
+- **Timezone check.** `npm run test:timezones` needs the pinned IANA data: `pip install -r scripts/requirements-timezones.txt` (into `.venv` or your own Python).
+
 ## Set up the frame
 
 1. **Wi-Fi.** After flashing, the frame starts a Wi-Fi hotspot called **immich-frame-10inch**. Join it from a phone and pick your network.
@@ -70,7 +94,7 @@ FIRMWARE_MANIFEST_URL=https://<your-user>.github.io/<repo>/manifest.json
 
 - Device config: `devices/guition-esp32-p4-jc8012p4a1/` and the shared `common/addon/*.yaml`; the build entry point is `builds/guition-esp32-p4-jc8012p4a1.factory.yaml`. Custom C++ components are in `components/`.
 - Several files are generated from `product/contract/*.json` and the web UI sources in `docs/webserver/src/` (the frame's settings page). After changing those, run `npm ci` once, then `npm run generate`, and commit the results; the Build workflow fails if they're stale. `npm run check:ci` runs the same checks as the Build workflow. (The other `check:*` scripts come from the original project and don't all pass here.)
-- Builds compile the custom components straight from this repo's `components/`, so nothing is downloaded from any other espframe repo. (`devices/guition-esp32-p4-jc8012p4a1/dev.yaml` is a local entry point with your own `secrets.yaml` for Wi-Fi; [Manual Setup](docs/manual-setup.md) covers the original project's ESPHome-dashboard install, not this repo.)
+- Builds compile the custom components straight from this repo's `components/`, so nothing is downloaded from any other espframe repo. (`devices/guition-esp32-p4-jc8012p4a1/dev.yaml` is a local entry point with your own `secrets.yaml` for Wi-Fi; see [Local Wi-Fi build](#local-wi-fi-build). [Manual Setup](docs/manual-setup.md) covers the original project's ESPHome-dashboard install, not this repo.)
 - The stand is a parametric [build123d](https://github.com/gumyr/build123d) model; see [its README](hardware/stand-10/README.md) to rebuild the print files locally.
 
 ## Licence and credit

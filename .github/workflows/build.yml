@@ -62,6 +62,12 @@ jobs:
             ~/.platformio
             builds/.esphome/.espressif
           key: esphome-${{ runner.os }}-py${{ steps.py.outputs.python-version }}-${{ steps.pin.outputs.esphome }}
+      # dev.yaml isn't compiled here, so validate it to catch config that only
+      # breaks the local Wi-Fi build (such as include paths).
+      - name: Validate the local Wi-Fi config
+        run: |
+          printf 'wifi_ssid: "ci"\nwifi_password: "ci-password"\n' > devices/guition-esp32-p4-jc8012p4a1/secrets.yaml
+          scripts/firmware.sh esphome -q config devices/guition-esp32-p4-jc8012p4a1/dev.yaml
       - name: Compile
         run: scripts/firmware.sh compile
 
