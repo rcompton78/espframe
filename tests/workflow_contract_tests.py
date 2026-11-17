@@ -2752,8 +2752,22 @@ def test_esphome_version_requires_pinned_install_in_each_firmware_workflow() -> 
     build = "jobs:\n  checks:\n    steps:\n      - with:\n          node-version: 22\n"
     assert run_version_checks(build) == [
         ".github/workflows/build.yml is missing \"['esphome_version']\"",
-        ".github/workflows/build.yml is missing 'pip install \"esphome==$version\"'",
+        ".github/workflows/build.yml is missing 'esphome==$version'",
     ]
+    assert run_version_checks(
+        build_with_node("          node-version: 22\n"),
+        {".github/workflows/release.yml": "jobs:\n  firmware:\n    steps:\n      - run: echo hi\n"},
+    ) == [
+        ".github/workflows/release.yml is missing \"['esphome_version']\"",
+        ".github/workflows/release.yml is missing 'esphome==$version'",
+    ]
+
+
+def test_esphome_version_allows_extra_pip_flags_on_the_pinned_install() -> None:
+    build = build_with_node("          node-version: 22\n").replace(
+        'pip install "esphome==$version"', 'pip install --no-cache-dir "esphome==$version"'
+    )
+    assert run_version_checks(build) == []
 
 
 def test_esphome_version_checks_docs_version_and_series() -> None:

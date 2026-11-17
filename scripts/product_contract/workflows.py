@@ -1418,7 +1418,8 @@ def check_workflow_job_condition_usage(
 # product metadata.
 FIRMWARE_WORKFLOWS = (".github/workflows/build.yml", ".github/workflows/release.yml")
 ESPHOME_PIN_READ = "['esphome_version']"
-ESPHOME_PINNED_INSTALL = 'pip install "esphome==$version"'
+# The pin as the workflows install it; extra pip flags around it are fine.
+ESPHOME_PINNED_INSTALL = "esphome==$version"
 
 
 def _read_rel(root: Path, rel_path: str, errors: list[str]) -> str:
@@ -1460,11 +1461,11 @@ def check_esphome_version(product: dict, errors: list[str], root: Path = ROOT) -
             if re.search(r"\bpip3? install\b.*\besphome\b", line) and ESPHOME_PINNED_INSTALL not in line:
                 errors.append(f"{rel_path} installs ESPHome without the contract pin: {line.strip()}")
 
-    for rel_path in ("docs/install.md", "docs/manual-setup.md"):
-        require_contains(_read_rel(root, rel_path, errors), f"`{version}`", rel_path, errors)
+    install_docs = _read_rel(root, "docs/install.md", errors)
+    require_contains(install_docs, f"`{version}`", "docs/install.md", errors)
+    require_contains(_read_rel(root, "docs/manual-setup.md", errors), f"`{version}`", "docs/manual-setup.md", errors)
     # The install notes head the bullet with the X.Y series, e.g. "**ESPHome 2026.6:**".
     series = version.rsplit(".", 1)[0]
-    install_docs = _read_rel(root, "docs/install.md", errors)
     for found in re.findall(r"\*\*ESPHome (\d+\.\d+):\*\*", install_docs):
         if found != series:
             errors.append(f"docs/install.md heading says ESPHome {found}, expected {series}")

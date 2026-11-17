@@ -173,7 +173,7 @@ def check_factory_firmware_metadata(product: dict, errors: list[str]) -> None:
             require_contains(build_text, f'css_include: "{factory_css_include}"', build_yaml, errors)
         if factory_js_include:
             require_contains(build_text, f'js_include: "{factory_js_include}"', build_yaml, errors)
-        require_contains(firmware_script, Path(build_yaml).name, "scripts/firmware.sh", errors)
+        require_contains(firmware_script, f'CONFIG="$ROOT/{build_yaml}"', "scripts/firmware.sh", errors)
 
     if network_mode:
         require_contains(install_docs, "hotspot", "docs/install.md", errors)
