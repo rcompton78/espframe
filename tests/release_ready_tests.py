@@ -26,7 +26,7 @@ def assert_versioned_compile(command: list[str], config_path: str) -> None:
     ]
 
 
-def test_compile_firmware_runs_versioned_factory_and_ota_commands() -> None:
+def test_compile_firmware_runs_versioned_factory_compile_and_budget_checks() -> None:
     captured: list[tuple[str, list[str]]] = []
     original_metadata = check_release_ready.github_workflow_metadata
     original_devices = check_release_ready.release_matrix_devices
