@@ -1104,7 +1104,7 @@
   "license_name": "PolyForm Noncommercial License 1.0.0",
   "owner_name": "jtenniswood",
   "owner_url": "https://github.com/jtenniswood",
-  "package_name": "jtenniswood.immich-frame",
+  "package_name": "rcompton78.espframe",
   "repository_url": "https://github.com/jtenniswood/espframe",
   "github_default_branch": "main",
   "github_pull_request_template_path": ".github/pull_request_template.md",
