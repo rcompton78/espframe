@@ -12,11 +12,10 @@
 - Tracker: linear
 
 ## Build
-<!-- check:fast / check:pr fail on stale product-contract checks from the original project.
-     Use the CI-equivalent commands until COM-661 fixes them, then switch back. -->
-- Lint: npm run webserver:typecheck
+<!-- check:pr's browser smoke tests (test:web-smoke) need Chrome or Chromium; set CHROME_BIN (or CHROME_PATH) if it isn't in a standard location. -->
+- Lint: npm run check:fast
 - Build: npm run webserver:build
-- Test: npm run check:ci
+- Test: npm run check:pr
 
 ## Open Code Review Gate
 - Enabled: no

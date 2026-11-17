@@ -31,6 +31,10 @@
         "purpose": "Download photo thumbnails for display"
       },
       {
+        "name": "asset.statistics",
+        "purpose": "Count matching photos when using Album, Person, or Tag sources"
+      },
+      {
         "name": "person.read",
         "purpose": "Show people's names on the photo overlay"
       },
@@ -329,8 +333,16 @@
         "gesture": "Press and hold for 3 seconds, then release"
       },
       {
+        "action": "Show IP address",
+        "gesture": "Tap the photo once"
+      },
+      {
         "action": "Next photo",
-        "gesture": "Double-tap on the photo"
+        "gesture": "Double-tap the right half of the screen"
+      },
+      {
+        "action": "Previous photo",
+        "gesture": "Double-tap the left half of the screen"
       }
     ],
     "screen_brightness_day_night_source": "sunrise/sunset",
@@ -1424,7 +1436,7 @@
     "generated_firmware_deferred_setting_fields": [],
     "support_url": "https://www.buymeacoffee.com/jtenniswood",
     "support_button_image_url": "https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png",
-    "node_version": "24",
+    "node_version": "22",
     "node_package_cache": "npm",
     "node_install_command": "npm ci",
     "local_check_command": "npm run check:pr",
