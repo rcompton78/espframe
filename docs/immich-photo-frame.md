@@ -1,0 +1,50 @@
+---
+title: Immich Digital Photo Frame with Espframe
+description: Use Espframe to build a private Immich digital photo frame on a Guition ESP32-P4 touchscreen without a cloud service or extra hub.
+---
+
+# Immich Digital Photo Frame with Espframe
+
+Espframe turns a supported Guition ESP32-P4 touchscreen into a standalone digital photo frame for [Immich](https://immich.app/). It is designed for self-hosted photo libraries, so the frame connects directly to your Immich server and displays photos from your own network.
+
+Unlike a tablet dashboard or cloud photo frame, Espframe runs firmware built with [ESPHome](https://esphome.io/) on the display hardware itself. You do not need Home Assistant, a separate bridge app, or a subscription service.
+
+<img src="public/espframe.png" alt="Espframe displaying Immich photos on a Guition ESP32-P4 touchscreen" style="max-width: 100%; border-radius: 8px; margin: 1rem 0;" />
+
+## What Espframe Does
+
+- Shows photos from your Immich library on an ESP32-P4 touchscreen.
+- Connects directly to Immich over HTTP or HTTPS.
+- Supports all photos, favorites, albums, people, memories, and date-filtered ranges.
+- Includes display controls for brightness, schedules, screen tone, and touch gestures.
+- Uses a browser-based installer for the supported Guition ESP32-P4 10-inch display.
+
+## What You Need
+
+| Item | Notes |
+|------|-------|
+| Immich server | A working self-hosted Immich instance on your network or reachable by HTTPS |
+| Supported display | Guition ESP32-P4 10-inch `JC8012P4A1` |
+| USB-C data cable | Used for first-time flashing; not a charge-only cable |
+| Chrome or Edge | Required on a desktop computer for browser flashing with Web Serial |
+| Immich API key | Read-only permissions are recommended |
+
+The same board is also sold as the **"10.1-inch ESP32P4 development board supports Xiaozhi ESP32 C6 capacitive touch screen"** ([AliExpress](https://www.aliexpress.com/item/1005009147577522.html)), panel `JC8012P4A1C_I_W_Y`. It has the same JD9365 MIPI-DSI panel, GSL3680 touch, ESP32-C6 WiFi co-processor and pinout, so use the `JC8012P4A1` firmware. Its ESP32-C6 WiFi module has no built-in antenna, so make sure the included external antenna is clipped onto the C6 module's U.FL connector — without it, WiFi signal is too weak to connect.
+
+## How Setup Works
+
+1. Flash the firmware from the [Install Espframe on a Guition ESP32-P4 Display](install.md) page.
+2. Connect the frame to WiFi.
+3. Enter your Immich server URL and [Immich API key permissions](api-key.md).
+4. Choose which [Espframe photo sources for Immich](photo-sources.md) should appear in the slideshow.
+
+## Privacy Model
+
+Espframe does not upload photos or send your library through a hosted service. The frame requests thumbnails and metadata from the Immich server URL you configure. If your Immich instance is only available on your local network, the frame stays local too.
+
+## Related Guides
+
+- [Install Espframe on a Guition ESP32-P4 Display](install.md)
+- [USB Flashing Help for Guition ESP32-P4](usb-flashing.md)
+- [Immich API Key Permissions for Espframe](api-key.md)
+- [Troubleshooting Espframe](troubleshooting.md)

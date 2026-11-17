@@ -1,0 +1,4 @@
+# IANA tzdata that check_timezones.py validates timezones.py against. Bump it
+# (and fix any zone the checker then flags) when a newer tzdata release
+# has real-world rule changes.
+tzdata==2026.6
