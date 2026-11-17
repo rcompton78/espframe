@@ -209,6 +209,10 @@ def check_web_entity_metadata(product: dict, errors: list[str]) -> None:
             require_contains(text, f"name: \"{name}\"", firmware_file, errors)
             if "options" in metadata:
                 check_static_entity_options(key, metadata, domain, name, text, firmware_file, errors)
+            elif domain == "select" and "optionsKey" not in metadata:
+                errors.append(
+                    f"Static web entity {key} select entity must set options or optionsKey so backup import can validate it"
+                )
 
     alias_entities_seen: set[str] = set()
     entity_aliases = web_entity_aliases(product)

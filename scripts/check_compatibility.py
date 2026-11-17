@@ -110,10 +110,6 @@ def fixture_validation_errors(data: dict[str, Any], product: dict[str, Any]) -> 
         errors.append("missing or unsupported version")
 
     for field_key, options in backup_select_field_options(product).items():
-        # screen.rotation has its own import path (hardware-dependent options) and the
-        # malformed-noncritical fixture deliberately carries an out-of-range rotation.
-        if field_key == "screen.rotation":
-            continue
         group, field = field_key.split(".", 1)
         group_data = data.get(group, {})
         value = group_data.get(field) if isinstance(group_data, dict) else None
@@ -218,25 +214,28 @@ def check_compatibility_fixtures(product: dict[str, Any], errors: list[str]) -> 
         errors.append("project.compatibility_fixture_files.rejected_fields must be a non-empty list")
     else:
         web_text = WEB_APP.read_text()
+        backup_keys = {f'{entry["group"]}.{entry["field"]}' for entry in backup_schema(product)}
         for item in rejected_fields:
             if not isinstance(item, dict):
                 errors.append("project.compatibility_fixture_files.rejected_fields entries must be objects")
                 continue
             path = ROOT / str(item.get("path", ""))
             data = load_json(path, errors)
-            if data and not fixture_validation_errors(data, product):
+            fixture_errors = fixture_validation_errors(data, product) if data else []
+            if data and not fixture_errors:
                 errors.append(f"{rel(path)} must contain at least one rejected import field")
             messages = item.get("messages", [])
             if not isinstance(messages, list) or not messages:
                 errors.append(f"{rel(path)} rejected fixture must list expected web UI messages")
                 continue
-            backup_keys = {f'{entry["group"]}.{entry["field"]}' for entry in backup_schema(product)}
             for message in [str(value) for value in messages]:
                 # Generic import messages are built as "<group>.<field> <reason>", so only the
-                # reason is literal in the web app.
+                # reason is literal in the web app. The named field must also fail validation.
                 field_key, _, reason = message.partition(" ")
                 if field_key in backup_keys and reason:
                     require_contains(web_text, " " + reason, rel(WEB_APP), errors)
+                    if data and not any(error.startswith(f"{field_key} ") for error in fixture_errors):
+                        errors.append(f"{rel(path)} expects {field_key} to be rejected, but it passes validation")
                 else:
                     require_contains(web_text, message, rel(WEB_APP), errors)
 
