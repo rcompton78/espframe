@@ -27,18 +27,27 @@
       statusMsg.style.color = "var(--danger)";
     }
 
+    // Key of what the row last drew. Rebuilding replaces (and unfocuses) the
+    // Install button, so skip it when nothing the row shows has changed.
+    var renderedRowKey: string | null = null;
+
     function renderUpdateRow() {
+      // Also covers installs this page didn't start (auto-update, Home
+      // Assistant, or a reload mid-install), so Install can't be sent twice.
+      var installing = !!S.firmware_install_pending || S.update_state === "INSTALLING";
+      var key = [S.update_available ? "1" : "0", S.latest_version || "", installing ? "1" : "0"].join("|");
+      if (key === renderedRowKey) return;
+      renderedRowKey = key;
       updateRow.replaceChildren();
       if (!S.update_available) return;
       var label = textLabel("Stable", S.latest_version);
       var installBtn = button("Install", "btn btn-primary btn-sm", function () {
         S.firmware_install_pending = true;
-        // A focused button blocks live re-renders (isEditingSetting), and the
-        // card must re-render when the frame comes back on its new version.
-        installBtn.blur();
-        installBtn.disabled = true;
-        installBtn.textContent = "Installing\u2026";
         statusMsg.textContent = "";
+        // Redraws the row with a disabled "Installing…" button. The new
+        // button isn't focused, so isEditingSetting won't block the re-render
+        // when the frame comes back on its new version.
+        renderUpdateRow();
         // Not post(): its failure banner says a setting failed to save, and
         // this card reports a failed install itself.
         var installUrl = endpoints.update + "/install";
@@ -51,9 +60,7 @@
             installFailed();
           });
       });
-      // Also covers installs this page didn't start (auto-update, Home
-      // Assistant, or a reload mid-install), so Install can't be sent twice.
-      if (S.firmware_install_pending || S.update_state === "INSTALLING") {
+      if (installing) {
         installBtn.disabled = true;
         installBtn.textContent = "Installing\u2026";
       }
@@ -64,17 +71,11 @@
     // entity back to "UPDATE AVAILABLE" (ESPHome may coalesce the brief
     // "INSTALLING" state away), and nothing else publishes that while an
     // install is pending.
-    // Rebuild the row only when the update state changes, so repeated
-    // events don't replace (and unfocus) the Install button.
-    var renderedUpdateState = S.update_state;
     firmwareUpdateStateListener = function (state) {
       if (S.firmware_install_pending && state === "UPDATE AVAILABLE") {
-        renderedUpdateState = state;
         installFailed();
         return;
       }
-      if (state === renderedUpdateState) return;
-      renderedUpdateState = state;
       renderUpdateRow();
     };
 

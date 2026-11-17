@@ -931,7 +931,8 @@ function smokeAssertionsForScenario(scenario) {
         const installButton = firmwareInstallButton();
         if (!installButton) throw new Error("Firmware Install button not found");
         installButton.click();
-        if (!installButton.disabled || installButton.textContent.indexOf("Installing") === -1) {
+        const installingButton = firmwareInstallButton();
+        if (!installingButton || !installingButton.disabled || installingButton.textContent.indexOf("Installing") === -1) {
           throw new Error("Install button did not show Installing");
         }
         if (!window.__smoke.posts.some((url) => url.indexOf("Firmware: Update/install") !== -1)) {
@@ -975,7 +976,14 @@ function smokeAssertionsForScenario(scenario) {
           name_id: "update/Firmware: Update", id: "update-firmware__update", domain: "update",
           value: "v1.0.2", state: "UPDATE AVAILABLE", current_version: "v1.0.1"
         });
-        events.dispatch("state", Object.assign(updateEvent("INSTALLING"), { value: "v1.0.2" }));
+        // A newer release while the state stays UPDATE AVAILABLE must update
+        // the "Stable" version shown.
+        events.dispatch("state", Object.assign(updateEvent("UPDATE AVAILABLE"), { value: "v1.0.3" }));
+        await waitFor(() => {
+          const row = document.querySelector(".fw-updates");
+          return row && row.textContent.indexOf("v1.0.3") !== -1;
+        }, 2000, "newer stable version shown while still UPDATE AVAILABLE");
+        events.dispatch("state", Object.assign(updateEvent("INSTALLING"), { value: "v1.0.3" }));
         await waitFor(() => {
           const button = firmwareInstallButton();
           return button && button.disabled && button.textContent.indexOf("Installing") !== -1;

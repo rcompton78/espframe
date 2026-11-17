@@ -2985,16 +2985,19 @@ to {
       statusMsg.textContent = "Install failed \u2013 try again";
       statusMsg.style.color = "var(--danger)";
     }
+    var renderedRowKey = null;
     function renderUpdateRow() {
+      var installing = !!S.firmware_install_pending || S.update_state === "INSTALLING";
+      var key = [S.update_available ? "1" : "0", S.latest_version || "", installing ? "1" : "0"].join("|");
+      if (key === renderedRowKey) return;
+      renderedRowKey = key;
       updateRow.replaceChildren();
       if (!S.update_available) return;
       var label = textLabel("Stable", S.latest_version);
       var installBtn = button("Install", "btn btn-primary btn-sm", function() {
         S.firmware_install_pending = true;
-        installBtn.blur();
-        installBtn.disabled = true;
-        installBtn.textContent = "Installing\u2026";
         statusMsg.textContent = "";
+        renderUpdateRow();
         var installUrl = endpoints.update + "/install";
         fetch(installUrl, { method: "POST" }).then(function(r) {
           if (!r.ok) throw new Error("install_failed: " + r.status);
@@ -3003,21 +3006,17 @@ to {
           installFailed();
         });
       });
-      if (S.firmware_install_pending || S.update_state === "INSTALLING") {
+      if (installing) {
         installBtn.disabled = true;
         installBtn.textContent = "Installing\u2026";
       }
       updateRow.appendChild(actionRow(label, installBtn));
     }
-    var renderedUpdateState = S.update_state;
     firmwareUpdateStateListener = function(state) {
       if (S.firmware_install_pending && state === "UPDATE AVAILABLE") {
-        renderedUpdateState = state;
         installFailed();
         return;
       }
-      if (state === renderedUpdateState) return;
-      renderedUpdateState = state;
       renderUpdateRow();
     };
     renderUpdateRow();
