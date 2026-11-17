@@ -116,7 +116,7 @@ jobs:
           path: |
             .platformio-core
             builds/.esphome/.espressif
-          key: esphome-${{ runner.os }}-py${{ steps.py.outputs.python-version }}-${{ steps.pin.outputs.esphome }}
+          key: esphome-v2-${{ runner.os }}-py${{ steps.py.outputs.python-version }}-${{ steps.pin.outputs.esphome }}
       - name: Compile
         run: scripts/firmware.sh compile
       - name: Package
