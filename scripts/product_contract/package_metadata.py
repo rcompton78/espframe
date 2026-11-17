@@ -172,12 +172,11 @@ def check_npm_package_metadata(product: dict, errors: list[str]) -> None:
 
     release_ready = read(ROOT / "scripts" / "check_release_ready.py", errors)
     require_contains(release_ready, "ESPHome factory compile", "scripts/check_release_ready.py", errors)
-    require_contains(release_ready, "ESPHome OTA compile", "scripts/check_release_ready.py", errors)
-    require_contains(release_ready, "factory and OTA firmware", "scripts/check_release_ready.py", errors)
+    require_contains(release_ready, "Firmware OTA budget", "scripts/check_release_ready.py", errors)
+    require_contains(release_ready, "factory and OTA image budgets", "scripts/check_release_ready.py", errors)
     require_contains(release_ready, "TEST_FIRMWARE_VERSION", "scripts/check_release_ready.py", errors)
     release_ready_tests = read(ROOT / "tests" / "release_ready_tests.py", errors)
     require_contains(release_ready_tests, "assert_versioned_compile(captured[0][1]", "tests/release_ready_tests.py", errors)
-    require_contains(release_ready_tests, "assert_versioned_compile(captured[2][1]", "tests/release_ready_tests.py", errors)
     for needle in ("check_build_budgets.py", '"--profile"', '"factory"', '"ota"'):
         require_contains(release_ready, needle, "scripts/check_release_ready.py", errors)
 

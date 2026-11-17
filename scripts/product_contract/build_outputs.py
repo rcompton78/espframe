@@ -296,8 +296,6 @@ def check_external_components_metadata(product: dict, errors: list[str]) -> None
             require_contains(device_text, "  id: espframe_core", device_yaml, errors)
         if build_yaml:
             build_paths = [build_yaml]
-            if build_yaml.endswith(".factory.yaml"):
-                build_paths.append(build_yaml.replace(".factory.yaml", ".yaml"))
             for build_path in build_paths:
                 checked_build_path = check_relative_path(
                     build_path,
