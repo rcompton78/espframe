@@ -9,6 +9,8 @@ OTA and HTTP updates from GitHub. A frame flashed from a fork's install page che
 
 During OTA updates, Espframe keeps the current backlight state while the update starts. If Home Assistant or the screen sleep control had already turned the display off, the screen stays off after the update reboot until it is woken again.
 
+While an update downloads, the slideshow stops fetching photos so the download has enough memory, and the current photo stays on screen. If the install fails, the slideshow starts again and the **Firmware** card shows **Install failed – try again**, with the **Install** button ready for another attempt.
+
 <!-- ESPFRAME:SETTINGS_TABLE firmware_controls START -->
 | Control | Type | Default | Description |
 |---------|------|---------|-------------|
