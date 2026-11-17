@@ -237,7 +237,12 @@ function browserScriptForScenario(scenario) {
       if (this.download) window.__smoke.downloads += 1;
     };
     FileReader.prototype.readAsText = function (file) {
-      this.result = file && file.__smokeContent ? file.__smokeContent : "";
+      // FileReader.prototype.result is a getter with no setter, so a plain
+      // assignment is silently ignored and the app would read null.
+      Object.defineProperty(this, "result", {
+        configurable: true,
+        value: file && file.__smokeContent ? file.__smokeContent : ""
+      });
       if (this.onload) setTimeout(() => this.onload({ target: this }), 0);
     };
     HTMLInputElement.prototype.click = function () {
@@ -446,16 +451,20 @@ function browserScriptForScenario(scenario) {
 function smokeAssertionsForScenario(scenario) {
   return `
     (async function () {
+      // Save checks inside waitFor swallow their errors while polling; the
+      // last one is reported if the wait times out.
+      let lastPendingError = null;
       function waitFor(check, timeoutMs, label) {
         const started = Date.now();
         return new Promise((resolve, reject) => {
           function poll() {
+            lastPendingError = null;
             try {
               if (check()) return resolve();
             } catch (error) {
               return reject(error);
             }
-            if (Date.now() - started > timeoutMs) return reject(new Error("Timed out waiting for " + label));
+            if (Date.now() - started > timeoutMs) return reject(new Error("Timed out waiting for " + label + (lastPendingError ? ": " + lastPendingError.message : "")));
             setTimeout(poll, 50);
           }
           poll();
@@ -505,7 +514,11 @@ function smokeAssertionsForScenario(scenario) {
         }).filter(Boolean);
       }
       function latestConfigurationValue(fragment) {
-        const endpoint = Object.keys(configurationKeyByEndpointName).find((name) => name.indexOf(fragment) !== -1);
+        // Prefer an exact name: "Device: Metadata Date" is also a prefix of
+        // "Device: Metadata Date Format" and "Device: Metadata Date Taken Format".
+        const endpointNames = Object.keys(configurationKeyByEndpointName);
+        const endpoint = endpointNames.find((name) => name === fragment) ||
+          endpointNames.find((name) => name.indexOf(fragment) !== -1);
         const key = endpoint && configurationKeyByEndpointName[endpoint];
         if (!key) return { found: false };
         const updates = configurationUpdates();
@@ -679,6 +692,7 @@ function smokeAssertionsForScenario(scenario) {
           }
           setSelect("Source", mode);
         });
+        setSelect("Source", "Album");
         requireText("Add an album");
         setSelect("Source", "Person");
         requireText("Add a person");
@@ -716,7 +730,8 @@ function smokeAssertionsForScenario(scenario) {
             requireLatestPostValue("Album IDs", "Photos: Album IDs", expectedIds);
             requireLatestPostValue("Album labels", "Photos: Album Labels", expectedLabels);
             return window.__smoke.posts.some((url) => url.indexOf("Apply Photo Source") !== -1);
-          } catch (_) {
+          } catch (error) {
+            lastPendingError = error;
             return false;
           }
         }, 8000, "album reorder save");
@@ -724,6 +739,8 @@ function smokeAssertionsForScenario(scenario) {
       async function requireScreenRotationPortraitFlow() {
         clickTab("Device");
         await waitFor(() => pageText().indexOf("Rotation") !== -1, 8000, "device settings");
+        expandCard("Rotation");
+        expandCard("Developer");
         requireText("Screen Brightness");
         requireText("Developer");
         requireText("Enable in-development features");
@@ -736,8 +753,10 @@ function smokeAssertionsForScenario(scenario) {
         await waitFor(() => {
           try {
             requireLatestPostParam("Portrait rotation", "Screen: Rotation", "option", "90");
-            return window.__smoke.posts.some((url) => url.indexOf("Photos: Portrait Pairing") !== -1 && url.indexOf("turn_off") !== -1);
-          } catch (_) {
+            requirePostContains("Portrait pairing off", "Photos: Portrait Pairing", "turn_off");
+            return true;
+          } catch (error) {
+            lastPendingError = error;
             return false;
           }
         }, 8000, "portrait rotation save");
@@ -748,7 +767,8 @@ function smokeAssertionsForScenario(scenario) {
           try {
             requirePostContains("Developer features enable", "Developer: Features", "turn_on");
             return true;
-          } catch (_) {
+          } catch (error) {
+            lastPendingError = error;
             return false;
           }
         }, 8000, "developer features enable");
@@ -759,7 +779,8 @@ function smokeAssertionsForScenario(scenario) {
             requireLatestPostParam("Rotation kept", "Screen: Rotation", "option", "90");
             requireSelectIncludes("Rotation", ["0", "90", "180", "270"]);
             return true;
-          } catch (_) {
+          } catch (error) {
+            lastPendingError = error;
             return false;
           }
         }, 8000, "portrait rotation kept");
@@ -767,6 +788,9 @@ function smokeAssertionsForScenario(scenario) {
       async function requireScreenToneScheduleControls() {
         clickTab("Device");
         await waitFor(() => pageText().indexOf("Night Schedule") !== -1, 8000, "device screen controls");
+        expandCard("Screen Brightness");
+        expandCard("Screen Tone");
+        expandCard("Night Schedule");
         requireText("Screen Brightness");
         requireText("Screen Tone");
         requireText("Night Schedule");
@@ -805,7 +829,8 @@ function smokeAssertionsForScenario(scenario) {
             requireLatestPostValue("Schedule off hour", "Screen: Schedule Off Hour", "21");
             requireLatestPostValue("Schedule wake timeout", "Screen: Schedule Wake Timeout", "120");
             return true;
-          } catch (_) {
+          } catch (error) {
+            lastPendingError = error;
             return false;
           }
         }, 8000, "screen tone and schedule saves");
@@ -864,7 +889,8 @@ function smokeAssertionsForScenario(scenario) {
             requireLatestPostValue("NTP server 2", "Clock: NTP Server 2", "time2.example.com");
             requireLatestPostValue("NTP server 3", "Clock: NTP Server 3", "time3.example.com");
             return true;
-          } catch (_) {
+          } catch (error) {
+            lastPendingError = error;
             return false;
           }
         }, 8000, "daily settings saves");
@@ -897,17 +923,28 @@ function smokeAssertionsForScenario(scenario) {
           await requireWizardConnectionSave();
         } else {
           await waitFor(() => pageText().indexOf("Photo Source") !== -1, 8000, "settings");
-          requireText("Immich Server URL");
-          requireText("Photo Source");
-          requireText("Date Filter");
-          requireText("Fixed Range");
-          requireText("Relative Range");
-          requireText("Firmware");
+          // Settings cards start collapsed, and innerText skips the bodies of
+          // collapsed cards and inactive tabs, so open what each check reads.
+          clickTab("Device");
+          expandCard("Firmware");
           requireText("Installed");
           requireText("Auto updates");
-          requirePhotoSourceModes();
+          clickTab("Immich");
+          expandCard("Connection");
+          requireText("Immich Server URL");
+          expandCard("Advanced Filters");
+          requireText("Filter by Date");
+          const filterModes = Array.from(fieldByLabel("Mode").querySelectorAll("button")).map((item) => item.textContent.trim());
+          if (JSON.stringify(filterModes) !== JSON.stringify(["Fixed", "Relative"])) {
+            throw new Error("Unexpected date filter modes: " + JSON.stringify(filterModes));
+          }
+          expandCard("Photo Source");
+          requireSelectIncludes("Source", ["All Photos", "Favorites", "Album", "Person", "Tag", "Memories"]);
 
           if (${JSON.stringify(scenario.name)} === "settings" || ${JSON.stringify(scenario.name)} === "settings-mobile") {
+            requirePhotoSourceModes();
+            clickTab("Device");
+            expandCard("Firmware");
             clickButton("Export");
             clickButton("Import");
             if (window.__smoke.downloads !== 1) throw new Error("Export did not trigger a download");
@@ -1015,7 +1052,6 @@ function smokeAssertionsForScenario(scenario) {
         }
         if (window.__smoke.errors.length) throw new Error(window.__smoke.errors.join("; "));
         document.documentElement.setAttribute("data-smoke-${scenario.name}", "pass");
-        document.body.appendChild(document.createTextNode(" ESPFRAME_BROWSER_SMOKE_${scenario.name.toUpperCase().replace(/-/g, "_")}_PASS "));
       } catch (error) {
         document.documentElement.setAttribute("data-smoke-${scenario.name}", "fail");
         const pre = document.createElement("pre");
@@ -1123,13 +1159,38 @@ async function runScenario(scenario) {
     30000
   );
 
-  const output = `${result.stdout || ""}\n${result.stderr || ""}`;
-  const passToken = `ESPFRAME_BROWSER_SMOKE_${scenario.name.toUpperCase().replace(/-/g, "_")}_PASS`;
-  if (!output.includes(passToken)) {
-    assert.equal(result.timedOut, false, `Chrome timed out for ${scenario.name}:\n${output}`);
-    assert.equal(result.status, 0, `Chrome failed for ${scenario.name}:\n${output}`);
+  const outcome = scenarioOutcome(scenario, result.stdout || "");
+  if (outcome.status === "pass") return;
+  // A failure the scenario recorded explains more than how Chrome exited.
+  if (outcome.status === "fail") {
+    assert.fail(`Browser smoke scenario ${scenario.name} failed: ${outcome.error || "no error captured"}`);
   }
-  assert.ok(output.includes(passToken), `Browser smoke scenario ${scenario.name} failed:\n${output}`);
+  assert.equal(result.timedOut, false, `Chrome timed out for ${scenario.name}:\n${result.stderr || ""}`);
+  assert.equal(result.status, 0, `Chrome failed for ${scenario.name}:\n${result.stderr || ""}`);
+  assert.fail(`Browser smoke scenario ${scenario.name} failed: scenario never finished`);
+}
+
+function decodeHtmlText(text) {
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+// Reads the scenario's outcome from Chrome's --dump-dom output. Only the
+// attribute on the serialized <html> start tag counts: the inline scenario
+// scripts are part of the dumped DOM too, so any token that also appears in
+// their source text would match whether or not the scenario passed.
+function scenarioOutcome(scenario, dom) {
+  const htmlTag = /<html\b[^>]*>/i.exec(dom);
+  const attr = htmlTag && new RegExp(`\\sdata-smoke-${scenario.name}="(pass|fail)"`).exec(htmlTag[0]);
+  const errorMatch = new RegExp(`<pre id="smoke-error-${scenario.name}">([\\s\\S]*?)</pre>`).exec(dom);
+  return {
+    status: attr ? attr[1] : "missing",
+    error: errorMatch ? decodeHtmlText(errorMatch[1]) : "",
+  };
 }
 
 function selectedScenariosFromArgs(args) {
@@ -1183,6 +1244,7 @@ if (require.main === module) {
 
 module.exports = {
   main,
+  scenarioOutcome,
   scenarios,
   selectedScenariosFromArgs,
 };
