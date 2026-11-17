@@ -100,7 +100,7 @@
     return options;
   }
 
-  function staticEntityOptions(key) {
+  function staticEntityOptions(key: string): string[] {
     var spec = STATIC_ENTITIES && STATIC_ENTITIES[key];
     if (!spec) return [];
     if (Array.isArray(spec.options)) return spec.options.slice();

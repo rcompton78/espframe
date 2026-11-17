@@ -65,25 +65,41 @@ function loadBackupImportValidation() {
   for (const entry of backupSchema) {
     for (const key of entry.state_keys) endpoints[key] = true; // stub: validation only checks presence
   }
+  const state = {};
   const context = {
-    S: {},
+    S: state,
     PRODUCT_SETTINGS: productSettings,
     STATIC_ENTITIES: staticEntities,
     endpoints,
   };
   const backupImportSource = fs.readFileSync(path.join(root, "docs/webserver/src/backup_import.ts"), "utf8");
-  vm.runInNewContext(`${helpers.join("\n")}\n${backupImportSource}\nthis.validate = validateProductSettingBackupImport;`, context);
+  // The template helpers carry TypeScript annotations; strip them the same way the web build does.
+  const helperSource = require("esbuild").transformSync(helpers.join("\n"), { loader: "ts", target: "es2018" }).code;
+  vm.runInNewContext(
+    `${helperSource}\n${backupImportSource}\nthis.validate = validateProductSettingBackupImport;\nthis.staticEntityOptions = staticEntityOptions;`,
+    context,
+  );
   const entryFor = (group, field) => {
     const entry = backupSchema.find((item) => item.group === group && item.field === field);
     assert.ok(entry, `backup schema should include ${group}.${field}`);
     return entry;
   };
   const validate = (entry, value) => ({ ...context.validate(entry, value) });
-  return { validate, entryFor };
+  const staticEntityOptions = (key) => Array.from(context.staticEntityOptions(key));
+  return { validate, entryFor, staticEntityOptions, state, staticEntities };
 }
 
 {
-  const { validate, entryFor } = loadBackupImportValidation();
+  const { validate, entryFor, staticEntityOptions, state, staticEntities } = loadBackupImportValidation();
+
+  // Inline options come back as a copy; optionsKey entities read their list from state.
+  assert.deepEqual(staticEntityOptions("clock_size"), ["Small", "Medium", "Large"]);
+  const optionsKeyEntity = Object.keys(staticEntities).find((key) => staticEntities[key].optionsKey);
+  assert.ok(optionsKeyEntity, "a static entity should use optionsKey");
+  assert.deepEqual(staticEntityOptions(optionsKeyEntity), []);
+  state[staticEntities[optionsKeyEntity].optionsKey] = ["Europe/London (GMT+0)", "UTC"];
+  assert.deepEqual(staticEntityOptions(optionsKeyEntity), ["Europe/London (GMT+0)", "UTC"]);
+  assert.deepEqual(staticEntityOptions("not_a_static_entity"), []);
   const clockSize = entryFor("clock", "size");
   const clockPosition = entryFor("clock", "position");
   const clockFormat = entryFor("clock", "format");
