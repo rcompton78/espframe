@@ -2995,7 +2995,9 @@ to {
         installBtn.disabled = true;
         installBtn.textContent = "Installing\u2026";
         statusMsg.textContent = "";
-        post(endpoints.update + "/install").catch(installFailed);
+        fetch(endpoints.update + "/install", { method: "POST" }).then(function(r) {
+          if (!r.ok) throw new Error("install_failed");
+        }).catch(installFailed);
       });
       if (S.firmware_install_pending) {
         installBtn.disabled = true;
