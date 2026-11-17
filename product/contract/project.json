@@ -299,6 +299,13 @@
         "messages": [
           "Stable firmware URL was invalid - not imported"
         ]
+      },
+      {
+        "path": "tests/fixtures/compat/espframe-config-v1-invalid-clock-options.json",
+        "messages": [
+          "clock.size had an unsupported option - not imported",
+          "clock.position had an unsupported option - not imported"
+        ]
       }
     ],
     "rejected_versions": [
@@ -881,12 +888,25 @@
       "entity": "select/Clock: Size",
       "firmware_file": "common/addon/time.yaml",
       "default": "Medium",
+      "options": [
+        "Small",
+        "Medium",
+        "Large"
+      ],
       "fetch": true
     },
     "clock_position": {
       "entity": "select/Clock: Position",
       "firmware_file": "common/addon/time.yaml",
       "default": "Bottom Left",
+      "options": [
+        "Bottom Left",
+        "Bottom Center",
+        "Bottom Right",
+        "Top Left",
+        "Top Center",
+        "Top Right"
+      ],
       "fetch": true
     },
     "c6_current_firmware": {
