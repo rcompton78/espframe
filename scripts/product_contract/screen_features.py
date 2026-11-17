@@ -39,7 +39,14 @@ def check_touch_controls_metadata(product: dict, errors: list[str]) -> None:
 
     require_contains(troubleshooting_docs, "wake, sleep, or next-photo gestures", "docs/troubleshooting.md", errors)
     require_contains(screen_settings_docs, "same sleep/wake behavior as the touchscreen controls", "docs/screen-settings.md", errors)
-    for needle in ("slideshow_on_press", "slideshow_on_short_click", "last_short_tap_ms", "immich_advance_forward"):
+    for needle in (
+        "slideshow_on_press",
+        "slideshow_on_short_click",
+        "last_short_tap_ms",
+        "immich_advance_forward",
+        "show_ip_overlay",
+        "immich_show_previous",
+    ):
         require_contains(slideshow_yaml, needle, "devices/guition-esp32-p4-jc8012p4a1/device/screen_slideshow.yaml", errors)
     for needle in ("3-second hold timer", "delay: 3s", "screen_schedule_manual_sleep"):
         require_contains(backlight_schedule_yaml, needle, "common/addon/backlight_schedule.yaml", errors)
@@ -195,9 +202,9 @@ def check_developer_features_metadata(product: dict, errors: list[str]) -> None:
     label = str(project.get("developer_features_label", "")).strip()
     entity = str(project.get("developer_features_entity", "")).strip()
     guard = str(project.get("developer_features_guard", "")).strip()
-    persistence = str(project.get("developer_features_persistence", "")).strip()
 
     developer_yaml = read(ROOT / "common" / "addon" / "developer_features.yaml", errors)
+    slideshow_yaml = read(ROOT / "common" / "addon" / "immich_slideshow.yaml", errors)
     web_template = read_web_source(errors)
     web_text = read(WEB_APP, errors)
 
@@ -210,6 +217,8 @@ def check_developer_features_metadata(product: dict, errors: list[str]) -> None:
     if label:
         require_contains(web_template, label, rel(WEB_TEMPLATE), errors)
         require_contains(web_text, label, rel(WEB_APP), errors)
+    if guard:
+        require_contains(slideshow_yaml, guard, "common/addon/immich_slideshow.yaml", errors)
     if entity:
         require_contains(developer_yaml, f'name: "{entity}"', "common/addon/developer_features.yaml", errors)
         if not re.search(rf'"entity"\s*:\s*"switch/{re.escape(entity)}"', web_text):

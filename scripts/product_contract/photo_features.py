@@ -366,14 +366,13 @@ def check_setup_flow_metadata(product: dict, errors: list[str]) -> None:
         require_contains(manual_setup_docs, secret, "docs/manual-setup.md", errors)
         for label, local_yaml in local_yamls:
             require_contains(local_yaml, f"!secret {secret}", label or "device local ESPHome YAML", errors)
+    # package_ref/package_refresh describe the original project's remote-package
+    # install, which only docs/manual-setup.md documents. This repo's local
+    # YAML includes the package from disk, so it isn't checked for them.
     if package_ref:
         require_contains(manual_setup_docs, f"ref: {package_ref}", "docs/manual-setup.md", errors)
-        for label, local_yaml in local_yamls:
-            require_contains(local_yaml, f"ref: {package_ref}", label or "device local ESPHome YAML", errors)
     if package_refresh:
         require_contains(manual_setup_docs, f"refresh: {package_refresh}", "docs/manual-setup.md", errors)
-        for label, local_yaml in local_yamls:
-            require_contains(local_yaml, f"refresh: {package_refresh}", label or "device local ESPHome YAML", errors)
     for needle in ("WiFi", "Immich server URL", "Immich API key"):
         require_contains(immich_frame_docs, needle, "docs/immich-photo-frame.md", errors)
 

@@ -5,6 +5,11 @@ from __future__ import annotations
 from product_contract.common import ROOT, check_relative_path, read, rel, require_contains
 
 
+# firmware_manifest_url is blank so local builds have no update manifest unless
+# one is set in .env; the release workflow fills it in for published builds.
+EMPTY_PACKAGE_SUBSTITUTIONS = {"firmware_manifest_url"}
+
+
 def check_devices(product: dict, errors: list[str]) -> None:
     seen: set[str] = set()
     for device in product["devices"]:
@@ -119,10 +124,10 @@ def check_devices(product: dict, errors: list[str]) -> None:
             for name, value in package_substitutions.items():
                 if not isinstance(name, str) or not name.strip():
                     errors.append(f"Device {slug} package_substitutions keys must be non-empty strings")
-                # Empty values are allowed: firmware_manifest_url is blank so local
-                # builds have no update manifest unless one is set in .env.
                 if not isinstance(value, str):
                     errors.append(f"Device {slug} package_substitutions.{name} must be a string")
+                elif not value.strip() and name not in EMPTY_PACKAGE_SUBSTITUTIONS:
+                    errors.append(f"Device {slug} package_substitutions.{name} must be a non-empty string")
         font_assets = device.get("font_assets", [])
         if not isinstance(font_assets, list) or not font_assets:
             errors.append(f"Device {slug} font_assets must be a non-empty list")

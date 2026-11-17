@@ -12,7 +12,7 @@
 - Tracker: linear
 
 ## Build
-<!-- check:pr's browser smoke tests (test:web-smoke) need Chrome or Chromium installed. -->
+<!-- check:pr's browser smoke tests (test:web-smoke) need Chrome or Chromium; set CHROME_BIN (or CHROME_PATH) if it isn't in a standard location. -->
 - Lint: npm run check:fast
 - Build: npm run webserver:build
 - Test: npm run check:pr

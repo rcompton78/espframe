@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import re
+from pathlib import Path
 
-from product_contract.common import ROOT, read, rel, require_contains
+from product_contract.common import ROOT, require_contains
 
 
 WORKFLOW_ACTION_TARGETS = {
@@ -1411,15 +1412,36 @@ def check_workflow_job_condition_usage(
             errors.append(f"{label} job {job_id} must not define an if condition")
 
 
-# This repo has two workflows: build.yml (pull requests and manual runs) and
-# release.yml (pushes to main). The contract only pins the tool versions they
-# install; the workflow layout itself is not mirrored in product metadata.
+# This repo has two workflows: build.yml (pull requests, manual runs, and called
+# from release.yml) and release.yml (pushes to main). The contract only pins the
+# tool versions they install; the workflow layout itself is not mirrored in
+# product metadata.
 FIRMWARE_WORKFLOWS = (".github/workflows/build.yml", ".github/workflows/release.yml")
 ESPHOME_PIN_READ = "['esphome_version']"
+ESPHOME_PINNED_INSTALL = 'pip install "esphome==$version"'
 
 
-def check_esphome_version(product: dict, errors: list[str]) -> None:
-    """Check that local builds and CI install the contract's ESPHome pin and the docs state it."""
+def _read_rel(root: Path, rel_path: str, errors: list[str]) -> str:
+    path = root / rel_path
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        errors.append(f"Missing file: {rel_path}")
+        return ""
+
+
+def workflow_files(root: Path) -> list[Path]:
+    """Return every GitHub workflow file (.yml and .yaml), sorted by name."""
+    workflow_dir = root / ".github" / "workflows"
+    return sorted([*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")])
+
+
+def check_esphome_version(product: dict, errors: list[str], root: Path = ROOT) -> None:
+    """Check that local builds and CI install the contract's ESPHome pin and the docs state it.
+
+    Each firmware workflow must read the pin from the contract and install exactly
+    that version; any other ``esphome`` install in a workflow is reported.
+    """
     version = str(product["project"].get("esphome_version", "")).strip()
     if not version:
         errors.append("project.esphome_version is required")
@@ -1427,16 +1449,35 @@ def check_esphome_version(product: dict, errors: list[str]) -> None:
     if not re.match(r"^\d+\.\d+\.\d+$", version):
         errors.append("project.esphome_version must be an exact X.Y.Z version")
 
-    # Local builds and CI install the pin straight from the contract.
-    require_contains(read(ROOT / "scripts" / "firmware.sh", errors), '["esphome_version"]', "scripts/firmware.sh", errors)
-    for path in FIRMWARE_WORKFLOWS:
-        require_contains(read(ROOT / path, errors), ESPHOME_PIN_READ, path, errors)
-    for path in ("docs/install.md", "docs/manual-setup.md"):
-        require_contains(read(ROOT / path, errors), f"`{version}`", path, errors)
+    require_contains(_read_rel(root, "scripts/firmware.sh", errors), '["esphome_version"]', "scripts/firmware.sh", errors)
+    for rel_path in FIRMWARE_WORKFLOWS:
+        text = _read_rel(root, rel_path, errors)
+        require_contains(text, ESPHOME_PIN_READ, rel_path, errors)
+        require_contains(text, ESPHOME_PINNED_INSTALL, rel_path, errors)
+    for path in workflow_files(root):
+        rel_path = path.relative_to(root).as_posix()
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if re.search(r"\bpip3? install\b.*\besphome\b", line) and ESPHOME_PINNED_INSTALL not in line:
+                errors.append(f"{rel_path} installs ESPHome without the contract pin: {line.strip()}")
+
+    for rel_path in ("docs/install.md", "docs/manual-setup.md"):
+        require_contains(_read_rel(root, rel_path, errors), f"`{version}`", rel_path, errors)
+    # The install notes head the bullet with the X.Y series, e.g. "**ESPHome 2026.6:**".
+    series = version.rsplit(".", 1)[0]
+    install_docs = _read_rel(root, "docs/install.md", errors)
+    for found in re.findall(r"\*\*ESPHome (\d+\.\d+):\*\*", install_docs):
+        if found != series:
+            errors.append(f"docs/install.md heading says ESPHome {found}, expected {series}")
 
 
-def check_node_version(product: dict, errors: list[str]) -> None:
-    """Check that every workflow's node-version and the README match project.node_version."""
+def check_node_version(product: dict, errors: list[str], root: Path = ROOT) -> None:
+    """Check that workflow Node versions and the README match project.node_version.
+
+    At least one workflow must set ``node-version``. Only the leading major
+    version is compared, so ``22``, ``22.x`` and ``'22.12.0'`` all match 22.
+    Expressions such as ``${{ matrix.node }}`` and ``node-version-file`` can't be
+    checked statically and are reported so the check never silently passes.
+    """
     version = str(product["project"].get("node_version", "")).strip()
     if not version:
         errors.append("project.node_version is required")
@@ -1444,9 +1485,26 @@ def check_node_version(product: dict, errors: list[str]) -> None:
     if not re.match(r"^\d+$", version):
         errors.append("project.node_version must be a major version number")
 
-    workflow_dir = ROOT / ".github" / "workflows"
-    for path in sorted(workflow_dir.glob("*.yml")):
-        for found in re.findall(r"^\s*node-version:\s*['\"]?([^'\"\s#]+)", read(path, errors), re.MULTILINE):
-            if found != version:
-                errors.append(f"{rel(path)} uses node-version {found}, expected project.node_version {version}")
-    require_contains(read(ROOT / "README.md", errors), f"Node.js {version}", "README.md", errors)
+    found_any = False
+    for path in workflow_files(root):
+        rel_path = path.relative_to(root).as_posix()
+        text = path.read_text(encoding="utf-8")
+        if re.search(r"^[ \t]*node-version-file:", text, re.MULTILINE):
+            errors.append(f"{rel_path} uses node-version-file; set node-version: {version} instead")
+        for raw in re.findall(r"^[ \t]*node-version:[ \t]*(.*?)[ \t]*(?:#.*)?$", text, re.MULTILINE):
+            found_any = True
+            value = raw.strip().strip("'\"")
+            major = re.match(r"(\d+)(?:\.|$)", value)
+            if not major:
+                errors.append(f"{rel_path} node-version {raw.strip() or '(empty)'} can't be checked; use {version}")
+            elif major.group(1) != version:
+                errors.append(f"{rel_path} uses node-version {value}, expected project.node_version {version}")
+    if not found_any:
+        errors.append(f"No workflow sets node-version; expected {version}")
+
+    readme = _read_rel(root, "README.md", errors)
+    mentioned = re.findall(r"Node\.js (\d+)\b", readme)
+    if version not in mentioned:
+        errors.append(f"README.md is missing 'Node.js {version}'")
+    for other in sorted(set(mentioned) - {version}):
+        errors.append(f"README.md mentions Node.js {other}, expected {version}")
