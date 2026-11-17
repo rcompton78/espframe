@@ -55,8 +55,11 @@ assert.throws(
 
 const wizardScenario = { name: "wizard" };
 // The dumped DOM always contains the scenario script, so text that appears
-// in the script source must not count as a pass.
+// in the script source must not count as a pass, even when it spells out the
+// pass attribute or a whole <html> tag carrying it.
 const scriptOnlyDom = `<html><head></head><body><script>
+  const markup = '<html data-smoke-wizard="pass">';
+  const attribute = 'data-smoke-wizard="pass"';
   document.documentElement.setAttribute("data-smoke-wizard", "pass");
   pre.id = "smoke-error-wizard";
 </script></body></html>`;
