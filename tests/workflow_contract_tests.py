@@ -2767,6 +2767,7 @@ def test_esphome_version_allows_extra_pip_flags_on_the_pinned_install() -> None:
     build = build_with_node("          node-version: 22\n").replace(
         'pip install "esphome==$version"', 'pip install --no-cache-dir "esphome==$version"'
     )
+    assert 'pip install --no-cache-dir "esphome==$version"' in build
     assert run_version_checks(build) == []
 
 
