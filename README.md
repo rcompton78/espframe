@@ -29,7 +29,7 @@ GitHub turns Actions off in new forks and never turns on Pages by itself, so do 
 2. **Settings** → **Pages** → **Build and deployment** → **Source**: choose **GitHub Actions**.
 3. **Actions** tab → **Release** → **Run workflow** (on `main`).
 
-The first run takes 20 minutes or more (later ones reuse a cache). It runs the checks, builds the firmware and the stand's print files, attaches them to a new GitHub release, and publishes an install page at `https://<your-user>.github.io/<repo>/`. After that, every push to `main` makes a new release, except pushes that only change `README.md` or Markdown pages under `docs/`. (If Pages is off, the Release run stops at its first step and says how to turn it on.) Only the newest commit on `main` is released: to retry a failed release, run the workflow again rather than re-running an old run.
+The first run takes 20 minutes or more (later ones reuse a cache). It runs the checks, builds the firmware and the stand's print files, attaches them to a new GitHub release, and publishes an install page at `https://<your-user>.github.io/<repo>/`. After that, every push to `main` makes a new release, except pushes that only change `README.md`, Markdown pages under `docs/`, `.gitignore` or files under `.claude/`. (If Pages is off, the Release run stops at its first step and says how to turn it on.) Only the newest commit on `main` is released: to retry a failed release, run the workflow again rather than re-running an old run.
 
 To flash, open your install page in **Chrome or Edge** on a desktop computer, plug in the frame, click **Install** and pick its serial port. Frames installed from your page check your page's `manifest.json` for updates, so they get your releases and nobody else's.
 

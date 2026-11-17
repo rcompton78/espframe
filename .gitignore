@@ -16,3 +16,6 @@ backups/
 # Public repo (tools/espframe-public in the source repo)
 .env
 dist/
+
+# wf plugin local config (secrets)
+.claude/workflow.local.md
