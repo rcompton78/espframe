@@ -20,3 +20,6 @@
 
 ## Open Code Review Gate
 - Enabled: no
+
+## Bot Thread Resolution
+- pr-revbot[bot]: auto-resolves
