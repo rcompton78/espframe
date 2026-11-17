@@ -53,7 +53,9 @@ if [ -f "$ROOT/.env" ]; then
             FIRMWARE_MANIFEST_URL | RELEASE_VERSION | DEVICE) export "$key=$value" ;;
             PLATFORMIO_CORE_DIR)
                 case "$value" in
+                    '~') value="$HOME" ;;
                     '~/'*) value="$HOME/${value#'~/'}" ;;
+                    '~'*) die ".env: PLATFORMIO_CORE_DIR: only a leading ~/ is expanded; use a full path instead of $value" ;;
                     '' | /*) ;;
                     *) value="$ROOT/$value" ;;
                 esac
