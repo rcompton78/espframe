@@ -119,7 +119,9 @@
   }
   function staticEntityOptions(key) {
     var spec = STATIC_ENTITIES && STATIC_ENTITIES[key];
-    return spec && Array.isArray(spec.options) ? spec.options.slice() : [];
+    if (!spec) return [];
+    if (Array.isArray(spec.options)) return spec.options.slice();
+    return spec.optionsKey && Array.isArray(S[spec.optionsKey]) ? S[spec.optionsKey].slice() : [];
   }
   var CSS = `*, *::before, *::after {
   box-sizing:border-box;

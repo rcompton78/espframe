@@ -45,7 +45,7 @@ assert.ok(publicApp.includes("movePhotoIdRow"), "public app should keep photo ID
 // Backup import validation runs against the generated product metadata, so select options
 // from both product settings and static entities (e.g. clock size/position) are covered.
 function generatedJsonVar(name) {
-  const match = publicApp.match(new RegExp(`\\bvar ${name} = (.*?);\\n`));
+  const match = publicApp.match(new RegExp(`\\bvar ${name} = (.*);\\s*$`, "m"));
   assert.ok(match, `public app should define ${name}`);
   return JSON.parse(match[1]);
 }
@@ -63,9 +63,10 @@ function loadBackupImportValidation() {
   });
   const endpoints = {};
   for (const entry of backupSchema) {
-    for (const key of entry.state_keys) endpoints[key] = `/configuration/${key}`;
+    for (const key of entry.state_keys) endpoints[key] = true; // stub: validation only checks presence
   }
   const context = {
+    S: {},
     PRODUCT_SETTINGS: productSettings,
     STATIC_ENTITIES: staticEntities,
     endpoints,
