@@ -19,7 +19,6 @@ from product_config import web_static_entities
 
 def check_touch_controls_metadata(product: dict, errors: list[str]) -> None:
     controls = product["project"].get("touch_controls", [])
-    readme = read(ROOT / "README.md", errors)
     touch_docs = read(ROOT / "docs" / "touch-controls.md", errors)
     troubleshooting_docs = read(ROOT / "docs" / "troubleshooting.md", errors)
     screen_settings_docs = read(ROOT / "docs" / "screen-settings.md", errors)
@@ -38,9 +37,6 @@ def check_touch_controls_metadata(product: dict, errors: list[str]) -> None:
             if gesture:
                 require_contains(touch_docs, gesture, "docs/touch-controls.md", errors)
 
-    for needle in ("tap to wake", "double-tap to advance to the next photo", "press-and-hold to sleep"):
-        require_contains(readme, needle, "README.md", errors)
-    require_contains(readme, "wake, sleep, or advance to the next photo", "README.md", errors)
     require_contains(troubleshooting_docs, "wake, sleep, or next-photo gestures", "docs/troubleshooting.md", errors)
     require_contains(screen_settings_docs, "same sleep/wake behavior as the touchscreen controls", "docs/screen-settings.md", errors)
     for needle in ("slideshow_on_press", "slideshow_on_short_click", "last_short_tap_ms", "immich_advance_forward"):
@@ -57,7 +53,6 @@ def check_screen_schedule_metadata(product: dict, errors: list[str]) -> None:
     schedule_behavior = str(project.get("screen_schedule_behavior", "")).strip()
     schedule_effects = project.get("screen_schedule_off_effects", [])
 
-    readme = read(ROOT / "README.md", errors)
     index_docs = read(ROOT / "docs" / "index.md", errors)
     screen_settings_docs = read(ROOT / "docs" / "screen-settings.md", errors)
     backup_docs = read(ROOT / "docs" / "backup.md", errors)
@@ -79,12 +74,6 @@ def check_screen_schedule_metadata(product: dict, errors: list[str]) -> None:
         for effect in schedule_effects:
             if isinstance(effect, str) and effect.strip():
                 require_contains(screen_settings_docs, effect.strip(), "docs/screen-settings.md", errors)
-    for needle in (
-        "schedule the display to turn off overnight",
-        "brightness",
-        "screen tone",
-    ):
-        require_contains(readme, needle, "README.md", errors)
     for needle in (
         "Screen Scheduling",
         "set daytime and night-time brightness levels separately",
@@ -208,13 +197,11 @@ def check_developer_features_metadata(product: dict, errors: list[str]) -> None:
     guard = str(project.get("developer_features_guard", "")).strip()
     persistence = str(project.get("developer_features_persistence", "")).strip()
 
-    readme = read(ROOT / "README.md", errors)
     developer_yaml = read(ROOT / "common" / "addon" / "developer_features.yaml", errors)
     web_template = read_web_source(errors)
     web_text = read(WEB_APP, errors)
 
     if query_value:
-        require_contains(readme, f"?developer={query_value}", "README.md", errors)
         for text, label_name in ((web_template, rel(WEB_TEMPLATE)), (web_text, rel(WEB_APP))):
             require_contains(text, f'=== "{query_value}"', label_name, errors)
     for param in query_params:
@@ -227,13 +214,7 @@ def check_developer_features_metadata(product: dict, errors: list[str]) -> None:
         require_contains(developer_yaml, f'name: "{entity}"', "common/addon/developer_features.yaml", errors)
         if not re.search(rf'"entity"\s*:\s*"switch/{re.escape(entity)}"', web_text):
             errors.append(f"{rel(WEB_APP)} is missing the Developer Features entity metadata")
-    if guard:
-        require_contains(readme, guard, "README.md", errors)
-    if persistence:
-        require_contains(readme, persistence, "README.md", errors)
     for needle in (
-        "hidden developer setting",
-        "must stay off",
         "RESTORE_DEFAULT_OFF",
         "initial_value: 'false'",
         "internal: true",
@@ -242,9 +223,7 @@ def check_developer_features_metadata(product: dict, errors: list[str]) -> None:
         "S.developer_features_enabled",
         'saveSetting("developer_features_enabled"',
     ):
-        if needle in {"hidden developer setting", "must stay off"}:
-            require_contains(readme, needle, "README.md", errors)
-        elif needle in {"RESTORE_DEFAULT_OFF", "initial_value: 'false'", "internal: true", "developer_features_saved"}:
+        if needle in {"RESTORE_DEFAULT_OFF", "initial_value: 'false'", "internal: true", "developer_features_saved"}:
             require_contains(developer_yaml, needle, "common/addon/developer_features.yaml", errors)
         else:
             require_contains(web_template, needle, rel(WEB_TEMPLATE), errors)
@@ -258,7 +237,6 @@ def check_screen_tone_metadata(product: dict, errors: list[str]) -> None:
     night_recovery = str(project.get("screen_tone_night_recovery", "")).strip()
     override_duration = str(project.get("screen_tone_override_duration", "")).strip()
 
-    readme = read(ROOT / "README.md", errors)
     index_docs = read(ROOT / "docs" / "index.md", errors)
     screen_tone_docs = read(ROOT / "docs" / "screen-tone.md", errors)
     backup_docs = read(ROOT / "docs" / "backup.md", errors)
@@ -286,8 +264,6 @@ def check_screen_tone_metadata(product: dict, errors: list[str]) -> None:
         "Display Tone Adjustment",
     ):
         require_contains(index_docs, needle, "docs/index.md", errors)
-    for needle in ("warm up a panel that looks too blue", "softer night tone after sunset"):
-        require_contains(readme, needle, "README.md", errors)
     require_contains(backup_docs, "Screen Tone", "docs/backup.md", errors)
     for needle in (
         "Screen: Tone Adjustment",

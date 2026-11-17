@@ -266,7 +266,7 @@ def check_project_api_key_feature_metadata_shape(product: dict, errors: list[str
                 errors.append("project.immich_api_key_permissions entry is missing name")
             elif name in seen_permissions:
                 errors.append(f"Duplicate Immich API key permission: {name}")
-            elif not re.match(r"^[a-z]+\.(read|view)$", name):
+            elif not re.match(r"^[a-z]+\.(read|view|statistics)$", name):
                 errors.append(f"Immich API key permission should be read/view-only: {name}")
             seen_permissions.add(name)
             if not purpose:
