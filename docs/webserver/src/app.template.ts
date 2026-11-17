@@ -100,11 +100,11 @@
     return options;
   }
 
+  // Inline options of a static select entity. Entities with optionsKey (timezone) keep their
+  // list in state and have their own UI and import path, so they aren't read here.
   function staticEntityOptions(key: string): string[] {
     var spec = STATIC_ENTITIES && STATIC_ENTITIES[key];
-    if (!spec) return [];
-    if (Array.isArray(spec.options)) return spec.options.slice();
-    return spec.optionsKey && Array.isArray(S[spec.optionsKey]) ? S[spec.optionsKey].slice() : [];
+    return spec && Array.isArray(spec.options) ? spec.options.slice() : [];
   }
 
   var CSS = __ESPFRAME_CSS__;

@@ -65,9 +65,7 @@ function loadBackupImportValidation() {
   for (const entry of backupSchema) {
     for (const key of entry.state_keys) endpoints[key] = true; // stub: validation only checks presence
   }
-  const state = {};
   const context = {
-    S: state,
     PRODUCT_SETTINGS: productSettings,
     STATIC_ENTITIES: staticEntities,
     endpoints,
@@ -86,19 +84,13 @@ function loadBackupImportValidation() {
   };
   const validate = (entry, value) => ({ ...context.validate(entry, value) });
   const staticEntityOptions = (key) => Array.from(context.staticEntityOptions(key));
-  return { validate, entryFor, staticEntityOptions, state, staticEntities };
+  return { validate, entryFor, staticEntityOptions };
 }
 
 {
-  const { validate, entryFor, staticEntityOptions, state, staticEntities } = loadBackupImportValidation();
+  const { validate, entryFor, staticEntityOptions } = loadBackupImportValidation();
 
-  // Inline options come back as a copy; optionsKey entities read their list from state.
   assert.deepEqual(staticEntityOptions("clock_size"), ["Small", "Medium", "Large"]);
-  const optionsKeyEntity = Object.keys(staticEntities).find((key) => staticEntities[key].optionsKey);
-  assert.ok(optionsKeyEntity, "a static entity should use optionsKey");
-  assert.deepEqual(staticEntityOptions(optionsKeyEntity), []);
-  state[staticEntities[optionsKeyEntity].optionsKey] = ["Europe/London (GMT+0)", "UTC"];
-  assert.deepEqual(staticEntityOptions(optionsKeyEntity), ["Europe/London (GMT+0)", "UTC"]);
   assert.deepEqual(staticEntityOptions("not_a_static_entity"), []);
   const clockSize = entryFor("clock", "size");
   const clockPosition = entryFor("clock", "position");
