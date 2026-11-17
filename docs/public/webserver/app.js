@@ -2995,19 +2995,26 @@ to {
         installBtn.disabled = true;
         installBtn.textContent = "Installing\u2026";
         statusMsg.textContent = "";
-        fetch(endpoints.update + "/install", { method: "POST" }).then(function(r) {
-          if (!r.ok) throw new Error("install_failed");
-        }).catch(installFailed);
+        var installUrl = endpoints.update + "/install";
+        fetch(installUrl, { method: "POST" }).then(function(r) {
+          if (!r.ok) throw new Error("install_failed: " + r.status);
+        }).catch(function(err) {
+          console.error("POST " + installUrl + " error:", err);
+          installFailed();
+        });
       });
-      if (S.firmware_install_pending) {
+      if (S.firmware_install_pending || S.update_state === "INSTALLING") {
         installBtn.disabled = true;
         installBtn.textContent = "Installing\u2026";
       }
       updateRow.appendChild(actionRow(label, installBtn));
     }
     firmwareUpdateStateListener = function(state) {
-      if (!S.firmware_install_pending) return;
-      if (state === "UPDATE AVAILABLE") installFailed();
+      if (S.firmware_install_pending && state === "UPDATE AVAILABLE") {
+        installFailed();
+        return;
+      }
+      renderUpdateRow();
     };
     renderUpdateRow();
     checkBtn.onclick = function() {
@@ -3255,7 +3262,9 @@ to {
         S.brightness_current = S.brightness;
       }
     } else if (id === "update/Firmware: Update") {
-      if (typeof firmwareUpdateStateListener === "function") firmwareUpdateStateListener(S.update_state);
+      if (d.state != null && typeof firmwareUpdateStateListener === "function") {
+        firmwareUpdateStateListener(String(d.state));
+      }
     } else if (id === "switch/Clock: Show") {
       S.show_clock = d.state === "ON" || d.value === true;
     } else if (id === "text_sensor/Screen: Sunrise") {

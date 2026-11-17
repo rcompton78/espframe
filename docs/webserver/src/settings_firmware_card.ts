@@ -41,13 +41,19 @@
         statusMsg.textContent = "";
         // Not post(): its failure banner says a setting failed to save, and
         // this card reports a failed install itself.
-        fetch(endpoints.update + "/install", { method: "POST" })
+        var installUrl = endpoints.update + "/install";
+        fetch(installUrl, { method: "POST" })
           .then(function (r) {
-            if (!r.ok) throw new Error("install_failed");
+            if (!r.ok) throw new Error("install_failed: " + r.status);
           })
-          .catch(installFailed);
+          .catch(function (err) {
+            console.error("POST " + installUrl + " error:", err);
+            installFailed();
+          });
       });
-      if (S.firmware_install_pending) {
+      // Also covers installs this page didn't start (auto-update, Home
+      // Assistant, or a reload mid-install), so Install can't be sent twice.
+      if (S.firmware_install_pending || S.update_state === "INSTALLING") {
         installBtn.disabled = true;
         installBtn.textContent = "Installing\u2026";
       }
@@ -59,8 +65,11 @@
     // "INSTALLING" state away), and nothing else publishes that while an
     // install is pending.
     firmwareUpdateStateListener = function (state) {
-      if (!S.firmware_install_pending) return;
-      if (state === "UPDATE AVAILABLE") installFailed();
+      if (S.firmware_install_pending && state === "UPDATE AVAILABLE") {
+        installFailed();
+        return;
+      }
+      renderUpdateRow();
     };
 
     renderUpdateRow();

@@ -920,6 +920,14 @@ function smokeAssertionsForScenario(scenario) {
           .find((button) => button.textContent.trim().indexOf("Install") === 0);
       }
       async function requireFailedInstallRecovers() {
+        // ESPHome 2026.x event shape: "id" is the object id; "name_id" is
+        // the "domain/Name" form the page keys on.
+        const events = window.__smoke.eventSource;
+        const updateEvent = (state) => ({
+          name_id: "update/Firmware: Update", id: "update-firmware__update", domain: "update",
+          value: "v1.0.1", state
+        });
+        events.dispatch("state", Object.assign(updateEvent("UPDATE AVAILABLE"), { current_version: "v1.0.0" }));
         const installButton = firmwareInstallButton();
         if (!installButton) throw new Error("Firmware Install button not found");
         installButton.click();
@@ -929,13 +937,12 @@ function smokeAssertionsForScenario(scenario) {
         if (!window.__smoke.posts.some((url) => url.indexOf("Firmware: Update/install") !== -1)) {
           throw new Error("Install did not post to the update entity");
         }
-        // ESPHome 2026.x event shape: "id" is the object id; "name_id" is
-        // the "domain/Name" form the page keys on.
-        const events = window.__smoke.eventSource;
-        const updateEvent = (state) => ({
-          name_id: "update/Firmware: Update", id: "update-firmware__update", domain: "update",
-          value: "v1.0.1", state
+        // An update event without a state (cached state still UPDATE
+        // AVAILABLE) must not count as a failed install.
+        events.dispatch("state", {
+          name_id: "update/Firmware: Update", id: "update-firmware__update", domain: "update", value: "v1.0.1"
         });
+        if (pageText().indexOf("Install failed") !== -1) throw new Error("Stateless update event reported as a failure");
         events.dispatch("state", updateEvent("INSTALLING"));
         if (pageText().indexOf("Install failed") !== -1) throw new Error("INSTALLING reported as a failure");
         events.dispatch("state", updateEvent("UPDATE AVAILABLE"));
@@ -961,6 +968,18 @@ function smokeAssertionsForScenario(scenario) {
           const card = document.querySelector(".fw-body");
           return card && /Installed\\s*v1\\.0\\.1/.test(card.innerText) && card.innerText.indexOf("Installing") === -1;
         }, 2000, "installed version after a successful install");
+
+        // An install this page didn't start (auto-update, Home Assistant, or a
+        // reload mid-install) must still disable Install.
+        events.dispatch("state", {
+          name_id: "update/Firmware: Update", id: "update-firmware__update", domain: "update",
+          value: "v1.0.2", state: "UPDATE AVAILABLE", current_version: "v1.0.1"
+        });
+        events.dispatch("state", updateEvent("INSTALLING"));
+        await waitFor(() => {
+          const button = firmwareInstallButton();
+          return button && button.disabled && button.textContent.indexOf("Installing") !== -1;
+        }, 2000, "Install disabled during an install started elsewhere");
       }
 
       try {
