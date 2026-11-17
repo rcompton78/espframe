@@ -1879,9 +1879,17 @@ to {
       return;
     }
     if (id === "update/Firmware: Update") {
-      S.installed_version = d.current_version || "";
-      S.latest_version = d.latest_version || "";
-      S.update_available = S.installed_version && S.latest_version && S.installed_version !== S.latest_version;
+      if (d.current_version != null) S.installed_version = d.current_version;
+      var latest = d.latest_version != null ? d.latest_version : d.value;
+      if (latest != null) S.latest_version = String(latest);
+      if (d.state != null) S.update_state = String(d.state);
+      if (S.update_state === "UPDATE AVAILABLE" || S.update_state === "INSTALLING") {
+        S.update_available = !!S.latest_version;
+      } else if (S.update_state === "NO UPDATE") {
+        S.update_available = false;
+      } else {
+        S.update_available = !!(S.installed_version && S.latest_version && S.installed_version !== S.latest_version);
+      }
       return;
     }
     var spec = ENTITY_STATE_MAP[id];
@@ -2946,6 +2954,7 @@ to {
     clkBody.appendChild(ntpServersField());
     return makeCollapsibleCard("Clock", clkBody, true, clockBadge);
   }
+  var firmwareUpdateStateListener = null;
   function makeFirmwareCard() {
     var fwBody = el("div", "fw-body");
     var versionLabel = textLabel("Installed", displayVersion(S.firmware || S.installed_version, "Dev"));
@@ -2962,17 +2971,33 @@ to {
     var updateRow = el("div");
     updatesSection.appendChild(updateRow);
     fwBody.appendChild(updatesSection);
+    function installFailed() {
+      S.firmware_install_pending = false;
+      renderUpdateRow();
+      statusMsg.textContent = "Install failed \u2013 try again";
+      statusMsg.style.color = "var(--danger)";
+    }
     function renderUpdateRow() {
       updateRow.replaceChildren();
       if (!S.update_available) return;
       var label = textLabel("Stable", S.latest_version);
       var installBtn = button("Install", "btn btn-primary btn-sm", function() {
+        S.firmware_install_pending = true;
         installBtn.disabled = true;
         installBtn.textContent = "Installing\u2026";
-        post(endpoints.update + "/install");
+        statusMsg.textContent = "";
+        post(endpoints.update + "/install").catch(installFailed);
       });
+      if (S.firmware_install_pending) {
+        installBtn.disabled = true;
+        installBtn.textContent = "Installing\u2026";
+      }
       updateRow.appendChild(actionRow(label, installBtn));
     }
+    firmwareUpdateStateListener = function(state) {
+      if (!S.firmware_install_pending) return;
+      if (state === "UPDATE AVAILABLE") installFailed();
+    };
     renderUpdateRow();
     checkBtn.onclick = function() {
       checkBtn.disabled = true;
@@ -3218,6 +3243,8 @@ to {
         S.brightness = Math.round(d.brightness / 255 * 100);
         S.brightness_current = S.brightness;
       }
+    } else if (id === "update/Firmware: Update") {
+      if (typeof firmwareUpdateStateListener === "function") firmwareUpdateStateListener(S.update_state);
     } else if (id === "switch/Clock: Show") {
       S.show_clock = d.state === "ON" || d.value === true;
     } else if (id === "text_sensor/Screen: Sunrise") {

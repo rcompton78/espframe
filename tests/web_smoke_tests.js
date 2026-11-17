@@ -260,6 +260,7 @@ function browserScriptForScenario(scenario) {
       constructor(url) {
         this.url = url;
         this.listeners = {};
+        window.__smoke.eventSource = this;
         setTimeout(() => {
           if (this.onopen) this.onopen({ type: "open" });
           this.dispatch("log", { msg: "Smoke log line", lvl: 3 });
@@ -912,6 +913,34 @@ function smokeAssertionsForScenario(scenario) {
         await waitFor(() => pageText().indexOf("Photo Source") !== -1, 8000, "settings after wizard");
       }
 
+      // A failed OTA puts the update entity back to UPDATE AVAILABLE; the
+      // Firmware card must re-enable Install and say the install failed.
+      function firmwareInstallButton() {
+        return Array.from(document.querySelectorAll(".fw-updates button"))
+          .find((button) => button.textContent.trim().indexOf("Install") === 0);
+      }
+      async function requireFailedInstallRecovers() {
+        const installButton = firmwareInstallButton();
+        if (!installButton) throw new Error("Firmware Install button not found");
+        installButton.click();
+        if (!installButton.disabled || installButton.textContent.indexOf("Installing") === -1) {
+          throw new Error("Install button did not show Installing");
+        }
+        if (!window.__smoke.posts.some((url) => url.indexOf("Firmware: Update/install") !== -1)) {
+          throw new Error("Install did not post to the update entity");
+        }
+        const events = window.__smoke.eventSource;
+        events.dispatch("state", { id: "update/Firmware: Update", value: "v1.0.1", state: "INSTALLING" });
+        if (pageText().indexOf("Install failed") !== -1) throw new Error("INSTALLING reported as a failure");
+        events.dispatch("state", { id: "update/Firmware: Update", value: "v1.0.1", state: "UPDATE AVAILABLE" });
+        await waitFor(() => pageText().indexOf("Install failed") !== -1, 2000, "install failure message");
+        const retryButton = firmwareInstallButton();
+        if (!retryButton || retryButton.disabled || retryButton.textContent.trim() !== "Install") {
+          throw new Error("Firmware Install button not re-enabled after a failed install");
+        }
+        requireText("v1.0.1");
+      }
+
       try {
         if (${JSON.stringify(scenario.name)} === "wizard") {
           await waitFor(() => pageText().indexOf("connect your photo frame") !== -1, 8000, "wizard");
@@ -954,6 +983,7 @@ function smokeAssertionsForScenario(scenario) {
             await waitFor(() => checkButton.textContent.trim() === "Check for Update", 7000, "firmware check");
             requireText("Stable");
             requireText("v1.0.1");
+            await requireFailedInstallRecovers();
             const logsTab = Array.from(document.querySelectorAll(".sp-tab")).find((tab) => tab.textContent.trim() === "Logs");
             if (!logsTab) throw new Error("Logs tab not found");
             logsTab.click();

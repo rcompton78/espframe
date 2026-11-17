@@ -119,12 +119,26 @@
       return;
     }
     if (id === "update/Firmware: Update") {
-      S.installed_version = d.current_version || "";
-      S.latest_version = d.latest_version || "";
-      S.update_available =
-        S.installed_version &&
-        S.latest_version &&
-        S.installed_version !== S.latest_version;
+      // State-only events (SSE updates after the first) omit current_version,
+      // so keep the versions already known rather than clearing them.
+      if (d.current_version != null) S.installed_version = d.current_version;
+      // ESPHome sends the latest version as "value"; tests and older
+      // builds may also send latest_version.
+      var latest = d.latest_version != null ? d.latest_version : d.value;
+      if (latest != null) S.latest_version = String(latest);
+      if (d.state != null) S.update_state = String(d.state);
+      // The entity's state says it directly; fall back to comparing versions
+      // only when the state doesn't (UNKNOWN or missing).
+      if (S.update_state === "UPDATE AVAILABLE" || S.update_state === "INSTALLING") {
+        S.update_available = !!S.latest_version;
+      } else if (S.update_state === "NO UPDATE") {
+        S.update_available = false;
+      } else {
+        S.update_available = !!(
+          S.installed_version &&
+          S.latest_version &&
+          S.installed_version !== S.latest_version);
+      }
       return;
     }
     var spec = ENTITY_STATE_MAP[id];

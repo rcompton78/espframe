@@ -10,6 +10,8 @@
         S.brightness = Math.round((d.brightness / 255) * 100);
         S.brightness_current = S.brightness;
       }
+    } else if (id === "update/Firmware: Update") {
+      if (typeof firmwareUpdateStateListener === "function") firmwareUpdateStateListener(S.update_state);
     } else if (id === "switch/Clock: Show") {
       S.show_clock = d.state === "ON" || d.value === true;
     } else if (id === "text_sensor/Screen: Sunrise") {

@@ -1,3 +1,6 @@
+  // Set by the Firmware card; live_helpers.ts calls it on update entity events.
+  var firmwareUpdateStateListener: ((state: string) => void) | null = null;
+
   function makeFirmwareCard() {
     // Firmware
     var fwBody = el("div", "fw-body");
@@ -17,17 +20,39 @@
     updatesSection.appendChild(updateRow);
     fwBody.appendChild(updatesSection);
 
+    function installFailed() {
+      S.firmware_install_pending = false;
+      renderUpdateRow();
+      statusMsg.textContent = "Install failed \u2013 try again";
+      statusMsg.style.color = "var(--danger)";
+    }
+
     function renderUpdateRow() {
       updateRow.replaceChildren();
       if (!S.update_available) return;
       var label = textLabel("Stable", S.latest_version);
       var installBtn = button("Install", "btn btn-primary btn-sm", function () {
+        S.firmware_install_pending = true;
         installBtn.disabled = true;
         installBtn.textContent = "Installing\u2026";
-        post(endpoints.update + "/install");
+        statusMsg.textContent = "";
+        post(endpoints.update + "/install").catch(installFailed);
       });
+      if (S.firmware_install_pending) {
+        installBtn.disabled = true;
+        installBtn.textContent = "Installing\u2026";
+      }
       updateRow.appendChild(actionRow(label, installBtn));
     }
+
+    // A successful install reboots the frame. A failed one puts the update
+    // entity back to "UPDATE AVAILABLE" (ESPHome may coalesce the brief
+    // "INSTALLING" state away), and nothing else publishes that while an
+    // install is pending.
+    firmwareUpdateStateListener = function (state) {
+      if (!S.firmware_install_pending) return;
+      if (state === "UPDATE AVAILABLE") installFailed();
+    };
 
     renderUpdateRow();
 
