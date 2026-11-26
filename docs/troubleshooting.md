@@ -18,6 +18,8 @@ If the browser installer cannot find the display, first check the basics:
 
 See [USB Flashing Help for Guition ESP32-P4](usb-flashing.md) for more detail.
 
+If the installer stops with **Failed to initialize** or `Failed to open serial port`, see [If the Installer Says "Failed to Initialize"](usb-flashing.md#if-the-installer-says-failed-to-initialize), which also covers flashing with esptool instead.
+
 ## 10" Screen Stays Black or Keeps Rebooting
 
 Guition 10" boards from late 2026 onwards have a v3.1 or later ESP32-P4 chip and a newer LCD panel. The original 10" firmware can't start on that chip: the screen stays black and the board resets over and over. Install the **JC8012P4A1 v3 chip (10 inch)** firmware instead (see [Install](install.md#web-installer)). It works the other way round too: the v3 build won't boot an older board.
