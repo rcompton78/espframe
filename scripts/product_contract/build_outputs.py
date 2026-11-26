@@ -156,7 +156,8 @@ def check_factory_firmware_metadata(product: dict, errors: list[str]) -> None:
         (".github/workflows/build.yml", build_workflow),
         (".github/workflows/release.yml", release_workflow),
     ):
-        require_contains(text, "run: scripts/firmware.sh compile", label, errors)
+        # "compile --chip <chip>" since the v3-chip build (COM-691).
+        require_contains(text, "scripts/firmware.sh compile", label, errors)
 
     for device in product["devices"]:
         slug = str(device.get("slug", "")).strip()

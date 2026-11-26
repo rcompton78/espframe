@@ -187,6 +187,13 @@ const scenarios = [
   { name: "wizard-connection-save", configured: false, width: 1280, height: 900 },
   { name: "settings", configured: true, width: 1280, height: 900 },
   { name: "settings-mobile", configured: true, width: 390, height: 900 },
+  {
+    name: "firmware-up-to-date",
+    configured: true,
+    width: 1280,
+    height: 900,
+    firmwareUpdate: { value: "v1.0.0", state: "NO UPDATE", current_version: "v1.0.0" },
+  },
   { name: "photo-source-reorder", configured: true, width: 1280, height: 900 },
   { name: "screen-rotation-portrait", configured: true, width: 1280, height: 900, query: "dev=experimental" },
   { name: "screen-tone-schedule", configured: true, width: 1280, height: 900 },
@@ -211,7 +218,10 @@ function browserScriptForScenario(scenario) {
       exportPayloads: [],
       inputClicks: 0,
       importFixture: ${JSON.stringify(scenario.importFixture || null)},
-      failedPostEndpoint: ${JSON.stringify(scenario.failedPostEndpoint || "")}
+      failedPostEndpoint: ${JSON.stringify(scenario.failedPostEndpoint || "")},
+      // ESPHome 2026.x update entity JSON: the latest version is "value";
+      // there is no latest_version field.
+      firmwareUpdate: ${JSON.stringify(scenario.firmwareUpdate || { value: "v1.0.1", state: "UPDATE AVAILABLE", current_version: "v1.0.0" })}
     };
     window.addEventListener("error", function (event) {
       window.__smoke.errors.push(event.message || "browser error");
@@ -264,6 +274,13 @@ function browserScriptForScenario(scenario) {
         setTimeout(() => {
           if (this.onopen) this.onopen({ type: "open" });
           this.dispatch("log", { msg: "Smoke log line", lvl: 3 });
+          // ESPHome 2026.x event shape: "id" is the object id; "name_id" is
+          // the "domain/Name" form the page keys on. The configuration API
+          // snapshot has no version, so this event is where the page gets it.
+          this.dispatch("state", {
+            name_id: "text_sensor/Firmware: Version", id: "text_sensor-firmware__version",
+            domain: "text_sensor", value: "v1.0.0", state: "v1.0.0"
+          });
           this.dispatch("state", { id: "text_sensor/Screen: Sunrise", value: "06:30" });
           this.dispatch("state", { id: "text_sensor/Screen: Sunset", value: "21:45" });
         }, 25);
@@ -430,11 +447,16 @@ function browserScriptForScenario(scenario) {
         }
         updateEndpointValueFromPost(decoded, body);
       }
+      if (decoded.indexOf("Firmware: Update") !== -1 && window.__smoke.firmwareUpdateFails) {
+        return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+      }
       if (decoded.indexOf("Firmware: Update") !== -1) {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({ value: "v1.0.1", state: "UPDATE AVAILABLE", current_version: "v1.0.0", latest_version: "v1.0.1" })
+          json: () => Promise.resolve(Object.assign({
+            name_id: "update/Firmware: Update", id: "update-firmware__update", domain: "update"
+          }, window.__smoke.firmwareUpdate))
         });
       }
       const endpointName = endpointNameForUrl(decoded);
@@ -913,12 +935,30 @@ function smokeAssertionsForScenario(scenario) {
         await waitFor(() => pageText().indexOf("Photo Source") !== -1, 8000, "settings after wizard");
       }
 
-      // A failed OTA puts the update entity back to UPDATE AVAILABLE; the
-      // Firmware card must re-enable Install and say the install failed.
+      function firmwareCardText() {
+        const card = Array.from(document.querySelectorAll(".fw-body"))
+          .find((body) => body.textContent.indexOf("Check for Update") !== -1);
+        return card ? card.innerText : "";
+      }
+      function installedLabelText() {
+        const label = Array.from(document.querySelectorAll(".fw-body .fw-label"))
+          .find((item) => item.firstChild && item.firstChild.textContent === "Installed");
+        return label ? label.textContent : "";
+      }
+      async function requireInstalledVersion(version) {
+        const expected = "Installed " + version;
+        try {
+          await waitFor(() => installedLabelText() === expected, 2000, expected);
+        } catch (_) {
+          throw new Error("Expected " + JSON.stringify(expected) + ", card shows " + JSON.stringify(installedLabelText()));
+        }
+      }
       function firmwareInstallButton() {
         return Array.from(document.querySelectorAll(".fw-updates button"))
           .find((button) => button.textContent.trim().indexOf("Install") === 0);
       }
+      // A failed OTA puts the update entity back to UPDATE AVAILABLE; the
+      // Firmware card must re-enable Install and say the install failed.
       async function requireFailedInstallRecovers() {
         // ESPHome 2026.x event shape: "id" is the object id; "name_id" is
         // the "domain/Name" form the page keys on.
@@ -966,7 +1006,8 @@ function smokeAssertionsForScenario(scenario) {
           value: "", state: "UNKNOWN", current_version: "", title: ""
         });
         await waitFor(() => {
-          const card = document.querySelector(".fw-body");
+          const updates = document.querySelector(".fw-updates");
+          const card = updates && updates.closest(".fw-body");
           return card && /Installed\\s*v1\\.0\\.1/.test(card.innerText) && card.innerText.indexOf("Installing") === -1;
         }, 2000, "installed version after a successful install");
 
@@ -988,6 +1029,36 @@ function smokeAssertionsForScenario(scenario) {
           const button = firmwareInstallButton();
           return button && button.disabled && button.textContent.indexOf("Installing") !== -1;
         }, 2000, "Install disabled during an install started elsewhere");
+      }
+
+      // The installed version matches the latest, so Check for Update must
+      // say so and offer no Install; after an update reboots the frame onto
+      // a new version, the card must show it.
+      async function requireFirmwareUpToDate() {
+        clickTab("Device");
+        expandCard("Firmware");
+        await requireInstalledVersion("v1.0.0");
+        const checkButton = clickButton("Check for Update");
+        await waitFor(() => checkButton.textContent.trim() === "Check for Update", 7000, "firmware check");
+        if (firmwareCardText().indexOf("Up to date") === -1) throw new Error("Firmware card did not say Up to date");
+        if (firmwareInstallButton()) throw new Error("Install offered for the version already installed");
+        if (document.querySelector(".fw-updates").textContent.indexOf("Stable") !== -1) {
+          throw new Error("Stable row shown for the version already installed");
+        }
+        window.__smoke.eventSource.dispatch("state", {
+          name_id: "text_sensor/Firmware: Version", id: "text_sensor-firmware__version",
+          domain: "text_sensor", value: "v1.0.1", state: "v1.0.1"
+        });
+        await requireInstalledVersion("v1.0.1");
+
+        // When the frame doesn't answer the update entity request, the card
+        // must not claim the firmware is up to date.
+        window.__smoke.firmwareUpdateFails = true;
+        clickButton("Check for Update");
+        await waitFor(() => buttonByText("Check for Update") && !buttonByText("Check for Update").disabled, 7000, "failed firmware check");
+        const checkText = firmwareCardText();
+        if (checkText.indexOf("Up to date") !== -1) throw new Error("Failed update check reported Up to date");
+        if (checkText.indexOf("Couldn't check") === -1) throw new Error("Failed update check not reported");
       }
 
       try {
@@ -1028,6 +1099,7 @@ function smokeAssertionsForScenario(scenario) {
             if (window.__smoke.downloads !== 1) throw new Error("Export did not trigger a download");
             requireExportShape();
             if (window.__smoke.inputClicks !== 1) throw new Error("Import did not open the file picker");
+            await requireInstalledVersion("v1.0.0");
             const checkButton = clickButton("Check for Update");
             await waitFor(() => checkButton.textContent.trim() === "Check for Update", 7000, "firmware check");
             requireText("Stable");
@@ -1043,6 +1115,10 @@ function smokeAssertionsForScenario(scenario) {
                 throw new Error("Mobile viewport has horizontal overflow");
               }
             }
+          }
+
+          if (${JSON.stringify(scenario.name)} === "firmware-up-to-date") {
+            await requireFirmwareUpToDate();
           }
 
           if (${JSON.stringify(scenario.name)} === "photo-source-reorder") {

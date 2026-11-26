@@ -5,11 +5,11 @@ description: Configure Espframe over-the-air and HTTP firmware updates from GitH
 
 # Espframe Firmware Updates
 
-OTA and HTTP updates from GitHub. A frame flashed from a fork's install page checks that fork's own manifest, `https://<owner>.github.io/<repo>/manifest.json`, which the fork's release workflow publishes to GitHub Pages. Releases from anyone else's fork, including the one you forked from, never reach it. A local build has no manifest URL, so it never checks for updates unless you set one (the README's `FIRMWARE_MANIFEST_URL`, or **Stable Manifest URL** below). Controls: device web UI at `http://<device-ip>/` under **Firmware** (and in Home Assistant).
+OTA and HTTP updates from GitHub. A frame flashed from a fork's install page checks that fork's own manifest, which the fork's release workflow publishes to GitHub Pages: `https://<owner>.github.io/<repo>/manifest.json` for the original 10" build, and `https://<owner>.github.io/<repo>/manifest-guition-esp32-p4-jc8012p4a1-v3.json` for the v3 chip build. Each lists a single build: both are ESP32-P4, ESPHome installs the first build whose chip family matches, and neither build boots on the other's chip. A frame from the install page whose saved manifest URL names the other build's manifest (from a restored backup, say) is moved back onto its own at boot, as is a local build given one of the fork's manifest URLs. Releases from anyone else's fork, including the one you forked from, never reach it. A local build has no manifest URL, so it never checks for updates unless you set one (the README's `FIRMWARE_MANIFEST_URL`, or **Stable Manifest URL** below). Controls: device web UI at `http://<device-ip>/` under **Firmware** (and in Home Assistant).
 
 During OTA updates, Espframe keeps the current backlight state while the update starts. If Home Assistant or the screen sleep control had already turned the display off, the screen stays off after the update reboot until it is woken again.
 
-While an update downloads, the slideshow stops fetching photos so the download has enough memory, and the current photo stays on screen. If the install fails, the slideshow starts again and the **Firmware** card shows **Install failed – try again**, with the **Install** button ready for another attempt.
+While an update downloads, the slideshow stops fetching photos so the download has enough memory, and the current photo stays on screen. If the install fails, the slideshow starts again. If you started the install from the **Firmware** card, it shows **Install failed – try again**, with the **Install** button ready for another attempt.
 
 <!-- ESPFRAME:SETTINGS_TABLE firmware_controls START -->
 | Control | Type | Default | Description |

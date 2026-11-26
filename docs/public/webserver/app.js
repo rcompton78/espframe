@@ -1903,7 +1903,7 @@ to {
     } else {
       S[spec.key] = v !== void 0 && v !== null ? String(v) : spec.default !== void 0 ? spec.default : "";
     }
-    if (spec.key === "firmware" && previousValue !== void 0 && previousValue !== S[spec.key]) {
+    if (spec.key === "firmware" && previousValue && S[spec.key] && previousValue !== S[spec.key]) {
       S.firmware_install_pending = false;
     }
     if (spec.key === "timezone") S[spec.key] = normalizeTimezoneOption(S[spec.key]);
@@ -2981,6 +2981,7 @@ to {
     fwBody.appendChild(updatesSection);
     function installFailed() {
       S.firmware_install_pending = false;
+      renderedRowKey = null;
       renderUpdateRow();
       statusMsg.textContent = "Install failed \u2013 try again";
       statusMsg.style.color = "var(--danger)";
@@ -3031,12 +3032,19 @@ to {
       }).then(function() {
         return safeGet(endpoints.update);
       }).then(function(data) {
-        var hasUpdate = data && data.value && (data.current_version ? data.current_version !== data.latest_version : data.state === "UPDATE AVAILABLE");
-        if (hasUpdate) {
-          S.update_available = true;
-          S.latest_version = data.latest_version || data.value;
-          renderUpdateRow();
+        if (!data) {
+          statusMsg.textContent = "Couldn't check \u2013 try again";
+          statusMsg.style.color = "var(--danger)";
+          return;
         }
+        applyEntityToState({
+          id: "update/Firmware: Update",
+          value: data.value,
+          state: data.state,
+          current_version: data.current_version,
+          latest_version: data.latest_version
+        });
+        renderUpdateRow();
         if (!S.update_available) {
           statusMsg.textContent = "Up to date";
           statusMsg.style.color = "var(--success)";
@@ -3265,8 +3273,8 @@ to {
         S.brightness_current = S.brightness;
       }
     } else if (id === "update/Firmware: Update") {
-      if (d.state != null && typeof firmwareUpdateStateListener === "function") {
-        firmwareUpdateStateListener(String(d.state));
+      if ((d.state != null || d.value != null || d.latest_version != null) && typeof firmwareUpdateStateListener === "function") {
+        firmwareUpdateStateListener(d.state != null ? String(d.state) : "");
       }
     } else if (id === "switch/Clock: Show") {
       S.show_clock = d.state === "ON" || d.value === true;

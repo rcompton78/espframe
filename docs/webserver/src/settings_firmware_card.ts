@@ -22,6 +22,9 @@
 
     function installFailed() {
       S.firmware_install_pending = false;
+      // Redraw even if the key didn't change, so Install is never left
+      // showing "Installing…" next to the failure message.
+      renderedRowKey = null;
       renderUpdateRow();
       statusMsg.textContent = "Install failed \u2013 try again";
       statusMsg.style.color = "var(--danger)";
@@ -57,6 +60,8 @@
           })
           .catch(function (err) {
             console.error("POST " + installUrl + " error:", err);
+            // The frame answers before it starts installing (the OTA is
+            // deferred), so a rejected request means it never started.
             installFailed();
           });
       });
@@ -95,15 +100,23 @@
           return safeGet(endpoints.update);
         })
         .then(function (data) {
-          var hasUpdate = data && data.value &&
-            (data.current_version
-              ? data.current_version !== data.latest_version
-              : data.state === "UPDATE AVAILABLE");
-          if (hasUpdate) {
-            S.update_available = true;
-            S.latest_version = data.latest_version || data.value;
-            renderUpdateRow();
+          // safeGet returns null when the frame didn't answer, so there's no
+          // result to report; don't call that "Up to date".
+          if (!data) {
+            statusMsg.textContent = "Couldn't check \u2013 try again";
+            statusMsg.style.color = "var(--danger)";
+            return;
           }
+          // ESPHome's update entity has no latest_version field: the latest
+          // version is its "value", and its state says whether that's newer.
+          applyEntityToState({
+            id: "update/Firmware: Update",
+            value: data.value,
+            state: data.state,
+            current_version: data.current_version,
+            latest_version: data.latest_version
+          });
+          renderUpdateRow();
           if (!S.update_available) {
             statusMsg.textContent = "Up to date";
             statusMsg.style.color = "var(--success)";

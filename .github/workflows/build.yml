@@ -1,5 +1,6 @@
-# Checks, compiles the 10" firmware and builds the stand's print files on every
-# pull request. release.yml also calls it, so main is checked before each release.
+# Checks, compiles both 10" firmware builds (pre-v3 and v3 chips) and builds
+# the stand's print files on every pull request. release.yml also calls it, so
+# main is checked before each release.
 # GitHub-hosted runners only; nothing here needs a secret.
 name: Build
 
@@ -44,6 +45,11 @@ jobs:
   firmware:
     if: ${{ !inputs.checks_only }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chip: [pre-v3, v3]
+    name: firmware (${{ matrix.chip }} chip)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: py
@@ -61,15 +67,20 @@ jobs:
           path: |
             .platformio-core
             builds/.esphome/.espressif
-          key: esphome-v2-${{ runner.os }}-py${{ steps.py.outputs.python-version }}-${{ steps.pin.outputs.esphome }}
+          # Per chip, so the two matrix legs don't race to save one key. The
+          # prefix also restores release.yml's cache (same toolchain).
+          key: esphome-v2-${{ runner.os }}-py${{ steps.py.outputs.python-version }}-${{ steps.pin.outputs.esphome }}-${{ matrix.chip }}
+          restore-keys: esphome-v2-${{ runner.os }}-py${{ steps.py.outputs.python-version }}-${{ steps.pin.outputs.esphome }}
       # dev.yaml isn't compiled here, so validate it to catch config that only
-      # breaks the local Wi-Fi build (such as include paths).
+      # breaks the local Wi-Fi build (such as include paths). It's the pre-v3
+      # board's, so once is enough.
       - name: Validate the local Wi-Fi config
+        if: ${{ matrix.chip == 'pre-v3' }}
         run: |
           printf 'wifi_ssid: "ci"\nwifi_password: "ci-password"\n' > devices/guition-esp32-p4-jc8012p4a1/secrets.yaml
           scripts/firmware.sh esphome -q config devices/guition-esp32-p4-jc8012p4a1/dev.yaml
       - name: Compile
-        run: scripts/firmware.sh compile
+        run: scripts/firmware.sh compile --chip ${{ matrix.chip }}
 
   stand:
     if: ${{ !inputs.checks_only }}
